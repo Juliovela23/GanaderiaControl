@@ -1,0 +1,155 @@
+@model IEnumerable<GanaderiaControl.Models.Alerta>
+@using GanaderiaControl.Models
+@{
+    Layout = "_Layout"; // quítalo si ya tienes Views/_ViewStart.cshtml
+    ViewData["Title"] = "Alertas";
+
+    var q = ViewData["q"] as string;
+    var estadoSel = (EstadoAlerta?)ViewData["estado"];
+    var desde = ViewData["desde"] as string;
+    var hasta = ViewData["hasta"] as string;
+    var proximos = (bool)(ViewData["proximos"] ?? false);
+
+    int total = Model?.Count() ?? 0;
+    int pendientes = Model?.Count(a => a.Estado == EstadoAlerta.Pendiente) ?? 0;
+    int vencidas = Model?.Count(a => a.Estado == EstadoAlerta.Pendiente && a.FechaObjetivo.Date < DateTime.Today) ?? 0;
+
+    var estadosEnum = Enum.GetValues(typeof(EstadoAlerta)).Cast<EstadoAlerta>();
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h3 mb-0">Alertas</h1>
+    <div class="small text-muted">
+        Total: <strong>@total</strong> · Pendientes: <strong>@pendientes</strong> · Vencidas: <strong>@vencidas</strong>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <form action="@Url.Action("Index", "Alertas")" method="get" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Búsqueda</label>
+                <div class="input-group">
+                    <span class="input-group-text">🔎</span>
+                    <input class="form-control" type="text" name="q" value="@q" placeholder="Arete o nombre..." />
+                </div>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Estado</label>
+                <select class="form-select" name="estado">
+                    <option value="">(Todos)</option>
+                    @foreach (var e in estadosEnum)
+                    {
+                        <option value="@((int)e)" selected="@(estadoSel == e ? "selected" : null)">@e</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Desde</label>
+                <input class="form-control" type="date" name="desde" value="@desde" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Hasta</label>
+                <input class="form-control" type="date" name="hasta" value="@hasta" />
+            </div>
+            <div class="col-md-3">
+                <div class="form-check form-switch mt-4">
+                    <input class="form-check-input" type="checkbox" name="proximos" value="true" checked="@(proximos ? "checked" : null)" />
+                    <label class="form-check-label">Próximas 4 semanas</label>
+                </div>
+                <div class="mt-2 d-flex gap-2">
+                    <button class="btn btn-primary" type="submit">Filtrar</button>
+                    <a href='@Url.Action("Index", "Alertas")' class="btn btn-outline-secondary">Limpiar</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Fecha</th>
+                    <th>Animal</th>
+                    <th>Tipo</th>
+                    <th>Estado</th>
+                    <th>Disparador</th>
+                    <th>Notas</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model != null && Model.Any())
+                {
+                    @foreach (var a in Model)
+                    {
+                        var estadoBadge = a.Estado switch
+                        {
+                            EstadoAlerta.Pendiente => "bg-warning text-dark",
+                            EstadoAlerta.Notificada => "bg-info text-dark",
+                            EstadoAlerta.Atendida => "bg-success",
+                            EstadoAlerta.Vencida => "bg-danger",
+                            _ => "bg-secondary"
+                        };
+                        var tipoBadge = a.Tipo switch
+                        {
+                            TipoAlerta.ChequeoGestacion => "bg-primary",
+                            TipoAlerta.Secado => "bg-dark",
+                            TipoAlerta.PartoProbable => "bg-success",
+                            TipoAlerta.PartoVencido => "bg-danger",
+                            TipoAlerta.Salud => "bg-warning text-dark",
+                            _ => "bg-secondary"
+                        };
+                        <tr>
+                            <td class="text-nowrap">@a.FechaObjetivo.ToString("yyyy-MM-dd")</td>
+                            <td>
+                                @a.Animal.Arete
+                                @if (!string.IsNullOrWhiteSpace(a.Animal.Nombre))
+                                {
+                                    <text> - @a.Animal.Nombre</text>
+                                }
+                            </td>
+                            <td><span class="badge rounded-pill @tipoBadge">@a.Tipo</span></td>
+                            <td><span class="badge rounded-pill @estadoBadge">@a.Estado</span></td>
+                            <td class="text-muted">@a.Disparador</td>
+                            <td class="text-muted">
+                                <div class="text-truncate" style="max-width: 280px;">@a.Notas</div>
+                            </td>
+                            <td class="text-end">
+                                <div class="btn-group">
+                                    <a href='@Url.Action("Details", "Alertas", new { id = a.Id })' class="btn btn-sm btn-outline-secondary">Ver</a>
+                                    <a href='@Url.Action("Edit", "Alertas", new { id = a.Id })' class="btn btn-sm btn-outline-primary">Editar</a>
+                                    <a href='@Url.Action("Delete", "Alertas", new { id = a.Id })' class="btn btn-sm btn-outline-danger">Eliminar</a>
+                                </div>
+                                <div class="btn-group ms-2">
+                                    <form action='@Url.Action("MarcarNotificada", "Alertas")' method="post" class="d-inline">
+                                        <input type="hidden" name="id" value="@a.Id" />
+                                        <button class="btn btn-sm btn-outline-secondary" type="submit" title="Marcar notificada">Notificada</button>
+                                    </form>
+                                    <form action='@Url.Action("MarcarAtendida", "Alertas")' method="post" class="d-inline">
+                                        <input type="hidden" name="id" value="@a.Id" />
+                                        <button class="btn btn-sm btn-outline-success" type="submit" title="Marcar atendida">Atendida</button>
+                                    </form>
+                                    <form action='@Url.Action("Reabrir", "Alertas")' method="post" class="d-inline">
+                                        <input type="hidden" name="id" value="@a.Id" />
+                                        <button class="btn btn-sm btn-outline-warning" type="submit" title="Reabrir">Reabrir</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">
+                            No hay alertas que coincidan con el filtro.
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

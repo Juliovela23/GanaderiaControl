@@ -1,0 +1,76 @@
+﻿@model GanaderiaControl.Models.Animal
+@using GanaderiaControl.Models
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Nuevo Animal";
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h3 mb-0">Nuevo animal</h1>
+    <a href="@Url.Action("Index", "Animales")" class="btn btn-outline-secondary">Volver</a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        @using (Html.BeginForm("Create", "Animales", FormMethod.Post, new { @class = "row g-3" }))
+        {
+            @Html.AntiForgeryToken()
+            @Html.ValidationSummary(false, "", new { @class = "text-danger" })
+
+            <div class="col-md-4">
+                @Html.LabelFor(m => m.Arete, new { @class = "form-label" })
+                @Html.TextBoxFor(m => m.Arete, new { @class = "form-control", autofocus = "autofocus" })
+                @Html.ValidationMessageFor(m => m.Arete, "", new { @class = "text-danger" })
+            </div>
+
+            <div class="col-md-4">
+                @Html.LabelFor(m => m.Nombre, new { @class = "form-label" })
+                @Html.TextBoxFor(m => m.Nombre, new { @class = "form-control" })
+            </div>
+
+            <div class="col-md-4">
+                @Html.LabelFor(m => m.Raza, new { @class = "form-label" })
+                @Html.TextBoxFor(m => m.Raza, new { @class = "form-control" })
+            </div>
+
+            <div class="col-md-4">
+                @Html.LabelFor(m => m.FechaNacimiento, new { @class = "form-label" })
+                @Html.TextBoxFor(m => m.FechaNacimiento, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date" })
+            </div>
+
+            <div class="col-md-4">
+                @Html.LabelFor(m => m.EstadoReproductivo, new { @class = "form-label" })
+                @Html.DropDownListFor(m => m.EstadoReproductivo,
+                Html.GetEnumSelectList<EstadoReproductivo>(),
+                        "-- Seleccione --",
+                        new { @class = "form-select" })
+        </div>
+
+        <div class="col-md-4">
+            @Html.LabelFor(m => m.MadreId, "Madre", new { @class = "form-label" })
+            @Html.DropDownListFor(m => m.MadreId,
+                        (IEnumerable<SelectListItem>)ViewBag.MadreId,
+                        "(Sin madre)",
+                        new { @class = "form-select" })
+        </div>
+
+        <div class="col-md-4">
+            @Html.LabelFor(m => m.PadreId, "Padre", new { @class = "form-label" })
+            @Html.DropDownListFor(m => m.PadreId,
+                        (IEnumerable<SelectListItem>)ViewBag.PadreId,
+                        "(Sin padre)",
+                        new { @class = "form-select" })
+        </div>
+
+        <div class="col-12 mt-2">
+            <button type="submit" class="btn btn-primary">Guardar</button>
+            <a href="@Url.Action("Index", "Animales")" class="btn btn-secondary">Cancelar</a>
+        </div>
+                }
+    </div>
+</div>
+
+@section Scripts {
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+}

@@ -1,0 +1,30 @@
+@model GanaderiaControl.Models.Alerta
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Eliminar Alerta";
+}
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h3 mb-0 text-danger">Eliminar alerta</h1>
+    <a href="@Url.Action("Index", "Alertas")" class="btn btn-outline-secondary">Volver</a>
+</div>
+
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Animal</dt>
+            <dd class="col-sm-9">@Model.Animal.Arete - @Model.Animal?.Nombre</dd>
+            <dt class="col-sm-3">Fecha</dt>
+            <dd class="col-sm-9">@Model.FechaObjetivo.ToString("yyyy-MM-dd")</dd>
+            <dt class="col-sm-3">Tipo</dt>
+            <dd class="col-sm-9">@Model.Tipo</dd>
+        </dl>
+    </div>
+</div>
+
+@using (Html.BeginForm("Delete", "Alertas", FormMethod.Post))
+{
+    @Html.AntiForgeryToken()
+    @Html.HiddenFor(m => m.Id)
+    <button type="submit" class="btn btn-danger">Eliminar</button>
+    <a href="@Url.Action("Index", "Alertas")" class="btn btn-secondary ms-2">Cancelar</a>
+}

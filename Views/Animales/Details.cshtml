@@ -1,0 +1,57 @@
+﻿@model GanaderiaControl.Models.Animal
+@using GanaderiaControl.Models
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Detalle Animal";
+    string badge = Model.EstadoReproductivo switch
+    {
+        EstadoReproductivo.Gestante => "bg-info",
+        EstadoReproductivo.Lactando => "bg-success",
+        EstadoReproductivo.Secada => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h3 mb-0">Detalle de animal</h1>
+    <div>
+        <a href="@Url.Action("Edit", "Animales", new { id = Model.Id })" class="btn btn-primary">Editar</a>
+        <a href="@Url.Action("Index", "Animales")" class="btn btn-outline-secondary">Volver</a>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Arete</dt>
+                    <dd class="col-sm-8 fw-semibold">@Model.Arete</dd>
+                    <dt class="col-sm-4">Nombre</dt>
+                    <dd class="col-sm-8">@Model.Nombre</dd>
+                    <dt class="col-sm-4">Raza</dt>
+                    <dd class="col-sm-8">@Model.Raza</dd>
+                    <dt class="col-sm-4">Estado</dt>
+                    <dd class="col-sm-8"><span class="badge rounded-pill @badge">@Model.EstadoReproductivo</span></dd>
+                    <dt class="col-sm-4">Nacimiento</dt>
+                    <dd class="col-sm-8">@Model.FechaNacimiento?.ToString("yyyy-MM-dd")</dd>
+                </dl>
+            </div>
+            <div class="col-md-6">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Madre</dt>
+                    <dd class="col-sm-8">@Model.Madre?.Arete</dd>
+                    <dt class="col-sm-4">Padre</dt>
+                    <dd class="col-sm-8">@Model.Padre?.Arete</dd>
+                    <dt class="col-sm-4">Creado</dt>
+                    <dd class="col-sm-8">@Model.CreatedAt.ToLocalTime()</dd>
+                    @if (Model.UpdatedAt.HasValue)
+                    {
+                        <dt class="col-sm-4">Actualizado</dt>
+                        <dd class="col-sm-8">@Model.UpdatedAt.Value.ToLocalTime()</dd>
+ }
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>

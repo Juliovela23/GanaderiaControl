@@ -1,0 +1,48 @@
+@model GanaderiaControl.Models.ServicioReproductivo
+@using Microsoft.AspNetCore.Mvc.Rendering
+@using GanaderiaControl.Models
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Editar Servicio";
+}
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h3 mb-0">Editar servicio</h1>
+    <a href="@Url.Action("Index", "Servicios")" class="btn btn-outline-secondary">Volver</a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        @using (Html.BeginForm("Edit", "Servicios", FormMethod.Post, new { @class = "row g-3" }))
+        {
+            @Html.AntiForgeryToken()
+            @Html.HiddenFor(m => m.Id)
+            @Html.ValidationSummary(false, "", new { @class = "text-danger" })
+
+            <div class="col-md-4">
+                @Html.LabelFor(m => m.AnimalId, "Animal", new { @class = "form-label" })
+                @Html.DropDownListFor(m => m.AnimalId, (IEnumerable<SelectListItem>)ViewBag.AnimalId, "-- Seleccione --", new { @class = "form-select" })
+            </div>
+            <div class="col-md-4">
+                @Html.LabelFor(m => m.FechaServicio, new { @class = "form-label" })
+                @Html.TextBoxFor(m => m.FechaServicio, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date" })
+            </div>
+            <div class="col-md-4">
+                @Html.LabelFor(m => m.Tipo, new { @class = "form-label" })
+                @Html.DropDownListFor(m => m.Tipo, Html.GetEnumSelectList<TipoServicio>(), "-- Seleccione --", new { @class = "form-select" })
+            </div>
+            <div class="col-md-6">
+                @Html.LabelFor(m => m.ToroOProveedor, "Toro / Proveedor", new { @class = "form-label" })
+                @Html.TextBoxFor(m => m.ToroOProveedor, new { @class = "form-control" })
+            </div>
+
+            <div class="col-12 mt-2">
+                <button type="submit" class="btn btn-primary">Guardar</button>
+                <a href="@Url.Action("Index", "Servicios")" class="btn btn-secondary">Cancelar</a>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+}

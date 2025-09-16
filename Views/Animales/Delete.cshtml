@@ -1,0 +1,34 @@
+﻿@model GanaderiaControl.Models.Animal
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Eliminar Animal";
+}
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h3 mb-0 text-danger">Eliminar animal</h1>
+    <a href="@Url.Action("Index", "Animales")" class="btn btn-outline-secondary">Volver</a>
+</div>
+
+<div class="alert alert-warning">Se aplicará <b>soft delete</b>. El registro no se elimina físicamente.</div>
+
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Arete</dt>
+            <dd class="col-sm-9 fw-semibold">@Model.Arete</dd>
+            <dt class="col-sm-3">Nombre</dt>
+            <dd class="col-sm-9">@Model.Nombre</dd>
+            <dt class="col-sm-3">Raza</dt>
+            <dd class="col-sm-9">@Model.Raza</dd>
+            <dt class="col-sm-3">Nacimiento</dt>
+            <dd class="col-sm-9">@Model.FechaNacimiento?.ToString("yyyy-MM-dd")</dd>
+        </dl>
+    </div>
+</div>
+
+@using (Html.BeginForm("Delete", "Animales", FormMethod.Post))
+{
+    @Html.AntiForgeryToken()
+    @Html.HiddenFor(m => m.Id)
+    <button type="submit" class="btn btn-danger">Eliminar</button>
+    <a href="@Url.Action("Index", "Animales")" class="btn btn-secondary ms-2">Cancelar</a>
+}
