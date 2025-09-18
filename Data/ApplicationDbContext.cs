@@ -20,6 +20,7 @@ public class ApplicationDbContext : IdentityDbContext<IdentityUser>
     public DbSet<RegistroLeche> RegistrosLeche => Set<RegistroLeche>();
     public DbSet<EventoSalud> EventosSalud => Set<EventoSalud>();
     public DbSet<Alerta> Alertas => Set<Alerta>();
+    public DbSet<ChequeoGestacion> ChequeosGestacion => Set<ChequeoGestacion>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

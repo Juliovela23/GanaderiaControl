@@ -1,0 +1,228 @@
+﻿@model GanaderiaControl.Models.ViewModels.DashboardViewModel
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h3 mb-0">📊 Dashboard</h1>
+</div>
+
+<!-- KPIs fila 1 -->
+<div class="row g-3 mb-2">
+    <div class="col-md-3 col-6">
+        <div class="card shadow-sm text-center h-100">
+            <div class="card-body">
+                <div class="text-muted">Animales</div>
+                <div class="h3 fw-bold">@Model.TotalAnimales</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card shadow-sm text-center h-100">
+            <div class="card-body">
+                <div class="text-muted">Gestantes</div>
+                <div class="h3 fw-bold">@Model.Gestantes</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card shadow-sm text-center h-100">
+            <div class="card-body">
+                <div class="text-muted">Servicios (mes)</div>
+                <div class="h3 fw-bold">@Model.ServiciosMes</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card shadow-sm text-center h-100">
+            <div class="card-body">
+                <div class="text-muted">Producción hoy (L)</div>
+                <div class="h3 fw-bold">@Model.ProduccionHoyLitros.ToString("0.##")</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- KPIs fila 2 -->
+<div class="row g-3">
+    <div class="col-md-3 col-6">
+        <div class="card shadow-sm text-center h-100 border-warning">
+            <div class="card-body">
+                <div class="text-muted">Alertas pendientes</div>
+                <div class="h3 fw-bold text-warning">@Model.AlertasPendientes</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card shadow-sm text-center h-100 border-info">
+            <div class="card-body">
+                <div class="text-muted">Para hoy</div>
+                <div class="h3 fw-bold text-info">@Model.AlertasHoyPendientes</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card shadow-sm text-center h-100 border-primary">
+            <div class="card-body">
+                <div class="text-muted">En la semana</div>
+                <div class="h3 fw-bold text-primary">@Model.AlertasSemanaPendientes</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card shadow-sm text-center h-100 border-danger">
+            <div class="card-body">
+                <div class="text-muted">Vencidas</div>
+                <div class="h3 fw-bold text-danger">@Model.AlertasVencidas</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Listas -->
+<div class="row mt-4 g-3">
+    <!-- Próximas alertas -->
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h2 class="h5 mb-0">🔔 Próximas alertas</h2>
+                    <a class="btn btn-sm btn-outline-primary" href="@Url.Action("Index", "Alertas", new { proximos = true })">Ver todas</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Animal</th>
+                                <th>Tipo</th>
+                                <th>Estado</th>
+                                <th>Notas</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.ProximasAlertas.Any())
+                            {
+                                foreach (var a in Model.ProximasAlertas)
+                                {
+                                    var badgeClass = a.Estado switch
+                                    {
+                                        "Pendiente" => "bg-warning text-dark",
+                                        "Notificada" => "bg-info",
+                                        "Atendida" => "bg-success",
+                                        "Vencida" => "bg-danger",
+                                        _ => "bg-secondary"
+                                    };
+                                    <tr>
+                                        <td>@a.Fecha.ToString("dd/MM/yyyy")</td>
+                                        <td>@a.Animal</td>
+                                        <td>@a.Tipo</td>
+                                        <td><span class="badge rounded-pill @badgeClass">@a.Estado</span></td>
+                                        <td>@a.Notas</td>
+                                        <td class="text-end">
+                                            <div class="btn-group">
+                                                <a class="btn btn-sm btn-outline-secondary" href="@Url.Action("Details", "Alertas", new { id = a.Id })">Ver</a>
+                                                <a class="btn btn-sm btn-outline-success" href="@Url.Action("MarcarNotificada", "Alertas", new { id = a.Id, returnUrl = Url.Action("Index", "Dashboard") })">Notificar</a>
+                                                <a class="btn btn-sm btn-outline-primary" href="@Url.Action("MarcarAtendida", "Alertas", new { id = a.Id, returnUrl = Url.Action("Index", "Dashboard") })">Atendida</a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="6" class="text-center py-4 text-muted">
+                                        No hay alertas próximas.
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Últimos servicios -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h2 class="h6 mb-0">🚀 Últimos servicios</h2>
+                    <a class="btn btn-sm btn-outline-secondary" href="@Url.Action("Index", "Servicios")">Ver servicios</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Animal</th>
+                                <th>Tipo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.UltimosServicios.Any())
+                            {
+                                foreach (var s in Model.UltimosServicios)
+                                {
+                                    <tr>
+                                        <td>@s.Fecha.ToString("dd/MM/yyyy")</td>
+                                        <td>@s.Animal</td>
+                                        <td>@s.Tipo</td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr><td colspan="3" class="text-center py-4 text-muted">Sin registros</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Partos recientes -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h2 class="h6 mb-0">🐄 Partos recientes</h2>
+                    <a class="btn btn-sm btn-outline-secondary" href="@Url.Action("Index", "Partos")">Ver partos</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Madre</th>
+                                <th>Tipo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.PartosRecientes.Any())
+                            {
+                                foreach (var p in Model.PartosRecientes)
+                                {
+                                    <tr>
+                                        <td>@p.Fecha.ToString("dd/MM/yyyy")</td>
+                                        <td>@p.Madre</td>
+                                        <td>@p.TipoParto</td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr><td colspan="3" class="text-center py-4 text-muted">Sin registros</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

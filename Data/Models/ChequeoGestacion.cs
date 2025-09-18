@@ -1,18 +1,36 @@
+using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
-namespace GanaderiaControl.Models;
-
-public class ChequeoGestacion : AuditableEntity
+namespace GanaderiaControl.Models
 {
-    public int Id { get; set; }
-    public int AnimalId { get; set; }
-    public Animal Animal { get; set; } = null!;
-    public DateTime FechaChequeo { get; set; }
-    public ResultadoGestacion Resultado { get; set; } = ResultadoGestacion.NoDeterminado;
+    // using System.ComponentModel.DataAnnotations.Schema;  (ya lo tienes)
+    public class ChequeoGestacion
+    {
+        public int Id { get; set; }
 
-    [MaxLength(120)] public string? Metodo { get; set; } // palpación/ecografía
-    [MaxLength(240)] public string? Observaciones { get; set; }
+        [Required]
+        public int AnimalId { get; set; }
+        public Animal? Animal { get; set; }
 
-    public int? ServicioReproductivoId { get; set; }
-    public ServicioReproductivo? ServicioReproductivo { get; set; }
+        [DataType(DataType.Date)]
+        [Required]
+        public DateTime FechaChequeo { get; set; }
+
+        [Required]
+        public ResultadoGestacion Resultado { get; set; } = ResultadoGestacion.NoDeterminado;
+
+        [StringLength(250)]
+        public string? Observaciones { get; set; }
+
+        // 🔹 NUEVO: referencia opcional al último servicio reproductivo
+        public int? ServicioReproductivoId { get; set; }
+        public ServicioReproductivo? ServicioReproductivo { get; set; }
+
+        // Auditoría / soft-delete
+        public bool IsDeleted { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? UpdatedAt { get; set; }
+    }
+
 }

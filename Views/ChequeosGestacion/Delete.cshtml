@@ -1,0 +1,46 @@
+﻿@model GanaderiaControl.Models.ChequeoGestacion
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Eliminar Chequeo";
+}
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h3 mb-0">Eliminar Chequeo</h1>
+</div>
+
+<div class="alert alert-warning">
+    ¿Confirmas eliminar este chequeo? (se aplicará <b>soft-delete</b>)
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Animal</dt>
+            <dd class="col-sm-9">
+                @Model.Animal?.Arete
+                @if (!string.IsNullOrWhiteSpace(Model.Animal?.Nombre))
+                {
+                    <span> - @Model.Animal?.Nombre</span>
+                }
+            </dd>
+
+            <dt class="col-sm-3">Fecha</dt>
+            <dd class="col-sm-9">@Model.FechaChequeo:dd/MM/yyyy</dd>
+
+            <dt class="col-sm-3">Resultado</dt>
+            <dd class="col-sm-9">@Model.Resultado</dd>
+
+            <dt class="col-sm-3">Observaciones</dt>
+            <dd class="col-sm-9">@Model.Observaciones</dd>
+        </dl>
+
+        @using (Html.BeginForm("Delete", "ChequeosGestacion", FormMethod.Post))
+        {
+            @Html.AntiForgeryToken()
+            @Html.HiddenFor(m => m.Id)
+            <div class="mt-3 d-flex gap-2">
+                <button type="submit" class="btn btn-danger">Eliminar</button>
+                <a class="btn btn-secondary" href="@Url.Action("Index")">Cancelar</a>
+            </div>
+        }
+    </div>
+</div>

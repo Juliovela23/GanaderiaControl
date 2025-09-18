@@ -1,0 +1,80 @@
+﻿@model GanaderiaControl.Models.ChequeoGestacion
+@using GanaderiaControl.Models
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Editar Chequeo";
+    var crearAlertaReServicio = (bool)(ViewBag.CrearAlertaReServicio ?? false);
+}
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h3 mb-0">Editar Chequeo</h1>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        @using (Html.BeginForm("Edit", "ChequeosGestacion", FormMethod.Post))
+        {
+            @Html.AntiForgeryToken()
+            @Html.HiddenFor(m => m.Id)
+            @Html.ValidationSummary(true, "", new { @class = "text-danger mb-3" })
+
+            <div class="row g-3">
+                <div class="col-md-4">
+                    @Html.LabelFor(m => m.AnimalId, new { @class = "form-label" })
+                    @Html.DropDownListFor(
+                    m => m.AnimalId,
+                                (SelectList)ViewBag.AnimalId,
+                                "-- seleccione --",
+                                new { @class = "form-select" }
+                                )
+                @Html.ValidationMessageFor(m => m.AnimalId, "", new { @class = "text-danger" })
+            </div>
+
+            <div class="col-md-4">
+                @Html.LabelFor(m => m.FechaChequeo, new { @class = "form-label" })
+                @Html.TextBoxFor(m => m.FechaChequeo, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date" })
+                @Html.ValidationMessageFor(m => m.FechaChequeo, "", new { @class = "text-danger" })
+            </div>
+
+            <div class="col-md-4">
+                @Html.LabelFor(m => m.Resultado, new { @class = "form-label" })
+                @Html.DropDownListFor(
+                                m => m.Resultado,
+                                Html.GetEnumSelectList<ResultadoGestacion>(),
+                                "-- seleccione --",
+                                new { @class = "form-select" }
+                                )
+                @Html.ValidationMessageFor(m => m.Resultado, "", new { @class = "text-danger" })
+            </div>
+
+            <div class="col-12">
+                @Html.LabelFor(m => m.Observaciones, new { @class = "form-label" })
+                @Html.TextAreaFor(m => m.Observaciones, 3, 50, new { @class = "form-control", placeholder = "Opcional" })
+                @Html.ValidationMessageFor(m => m.Observaciones, "", new { @class = "text-danger" })
+            </div>
+
+            <div class="col-12">
+                <div class="form-check">
+                    <input type="checkbox"
+                           name="crearAlertaReServicio"
+                           id="crearAlertaReServicio"
+                           class="form-check-input"
+                           value="true"
+                           @(crearAlertaReServicio ? "checked" : "") />
+                    <label for="crearAlertaReServicio" class="form-check-label">
+                        Crear alerta de <b>Re-servicio</b> (+21 días) cuando el resultado sea <b>NoGestante</b>.
+                    </label>
+                </div>
+            </div>
+
+            <div class="col-12 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                <a class="btn btn-secondary" href="@Url.Action("Index")">Volver</a>
+            </div>
+        </div>
+                }
+    </div>
+</div>
+
+@section Scripts {
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+}
