@@ -26,6 +26,10 @@ public class ApplicationDbContext : IdentityDbContext<IdentityUser>
     {
         base.OnModelCreating(modelBuilder);
 
+        // (Opcional) Si quieres que todo vaya al esquema "public"
+        // modelBuilder.HasDefaultSchema("public");
+
+        // Filtros soft-delete
         modelBuilder.Entity<Animal>().HasQueryFilter(x => !x.IsDeleted);
         modelBuilder.Entity<ServicioReproductivo>().HasQueryFilter(x => !x.IsDeleted);
         modelBuilder.Entity<ChequeoGestacion>().HasQueryFilter(x => !x.IsDeleted);
@@ -37,35 +41,37 @@ public class ApplicationDbContext : IdentityDbContext<IdentityUser>
         modelBuilder.Entity<EventoSalud>().HasQueryFilter(x => !x.IsDeleted);
         modelBuilder.Entity<Alerta>().HasQueryFilter(x => !x.IsDeleted);
 
-     
+        // ------- Animal -------
         modelBuilder.Entity<Animal>(e =>
         {
             e.HasIndex(x => x.Arete).IsUnique();
             e.Property(x => x.EstadoReproductivo).HasConversion<int>();
+
             e.HasOne(x => x.Madre)
-             .WithMany()
-             .HasForeignKey(x => x.MadreId)
-             .OnDelete(DeleteBehavior.NoAction);
+                .WithMany()
+                .HasForeignKey(x => x.MadreId)
+                .OnDelete(DeleteBehavior.NoAction);
 
             e.HasOne(x => x.Padre)
-             .WithMany()
-             .HasForeignKey(x => x.PadreId)
-             .OnDelete(DeleteBehavior.NoAction);
+                .WithMany()
+                .HasForeignKey(x => x.PadreId)
+                .OnDelete(DeleteBehavior.NoAction);
         });
 
-        
+        // ------- ServicioReproductivo -------
         modelBuilder.Entity<ServicioReproductivo>(e =>
         {
             e.HasIndex(x => new { x.AnimalId, x.FechaServicio });
             e.Property(x => x.Tipo).HasConversion<int>();
-            e.Property(x => x.FechaServicio).HasColumnType("date");
+            e.Property(x => x.FechaServicio).HasColumnType("date"); // OK en Postgres
+
             e.HasOne(x => x.Animal)
-             .WithMany(a => a.Servicios)
-             .HasForeignKey(x => x.AnimalId)
-             .OnDelete(DeleteBehavior.Restrict);
+                .WithMany(a => a.Servicios)
+                .HasForeignKey(x => x.AnimalId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
-      
+        // ------- ChequeoGestacion -------
         modelBuilder.Entity<ChequeoGestacion>(e =>
         {
             e.Property(x => x.Resultado).HasConversion<int>();
@@ -73,28 +79,29 @@ public class ApplicationDbContext : IdentityDbContext<IdentityUser>
             e.Property(x => x.FechaChequeo).HasColumnType("date");
 
             e.HasOne(x => x.Animal)
-             .WithMany(a => a.Chequeos)
-             .HasForeignKey(x => x.AnimalId)
-             .OnDelete(DeleteBehavior.Restrict);
+                .WithMany(a => a.Chequeos)
+                .HasForeignKey(x => x.AnimalId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             e.HasOne(x => x.ServicioReproductivo)
-             .WithMany()
-             .HasForeignKey(x => x.ServicioReproductivoId)
-             .OnDelete(DeleteBehavior.SetNull);
+                .WithMany()
+                .HasForeignKey(x => x.ServicioReproductivoId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
-        
+        // ------- Secado -------
         modelBuilder.Entity<Secado>(e =>
         {
             e.HasIndex(x => new { x.AnimalId, x.FechaSecado });
             e.Property(x => x.FechaSecado).HasColumnType("date");
+
             e.HasOne(x => x.Animal)
-             .WithMany(a => a.Secados)
-             .HasForeignKey(x => x.AnimalId)
-             .OnDelete(DeleteBehavior.Restrict);
+                .WithMany(a => a.Secados)
+                .HasForeignKey(x => x.AnimalId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
-      
+        // ------- Parto -------
         modelBuilder.Entity<Parto>(e =>
         {
             e.Property(x => x.TipoParto).HasConversion<int>();
@@ -102,62 +109,67 @@ public class ApplicationDbContext : IdentityDbContext<IdentityUser>
             e.Property(x => x.FechaParto).HasColumnType("date");
 
             e.HasOne(x => x.Madre)
-             .WithMany(a => a.Partos)
-             .HasForeignKey(x => x.MadreId)
-             .OnDelete(DeleteBehavior.Restrict);
+                .WithMany(a => a.Partos)
+                .HasForeignKey(x => x.MadreId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
-      
+        // ------- Cria -------
         modelBuilder.Entity<Cria>(e =>
         {
             e.Property(x => x.Sexo).HasConversion<int>();
-            e.Property(x => x.PesoNacimientoKg).HasColumnType("decimal(10,2)");
+            // Antes: HasColumnType("decimal(10,2)")  -> Postgres:
+            e.Property(x => x.PesoNacimientoKg).HasPrecision(10, 2);
 
             e.HasOne(x => x.Parto)
-             .WithMany(p => p.Crias)
-             .HasForeignKey(x => x.PartoId)
-             .OnDelete(DeleteBehavior.Restrict);
+                .WithMany(p => p.Crias)
+                .HasForeignKey(x => x.PartoId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         // ------- Lactancia -------
         modelBuilder.Entity<Lactancia>(e =>
         {
-            e.Property(x => x.ProduccionPromedioDiaLitros).HasColumnType("decimal(10,2)");
+            e.Property(x => x.ProduccionPromedioDiaLitros).HasPrecision(10, 2);
             e.Property(x => x.FechaInicio).HasColumnType("date");
             e.Property(x => x.FechaFin).HasColumnType("date");
 
             e.HasOne(x => x.Animal)
-             .WithMany(a => a.Lactancias)
-             .HasForeignKey(x => x.AnimalId)
-             .OnDelete(DeleteBehavior.Restrict);
+                .WithMany(a => a.Lactancias)
+                .HasForeignKey(x => x.AnimalId)
+                .OnDelete(DeleteBehavior.Restrict);
 
-            e.HasCheckConstraint("CK_Lactancia_Fechas", "[FechaFin] IS NULL OR [FechaFin] >= [FechaInicio]");
+            // Check constraint (elige UNA de las dos versiones):
+            // Si NO usas UseSnakeCaseNamingConvention():
+            e.HasCheckConstraint("CK_Lactancia_Fechas", "\"FechaFin\" IS NULL OR \"FechaFin\" >= \"FechaInicio\"");
+            // Si SÍ usas UseSnakeCaseNamingConvention(), usa esta en cambio:
+            // e.HasCheckConstraint("ck_lactancia_fechas", "fecha_fin IS NULL OR fecha_fin >= fecha_inicio");
         });
 
-        
+        // ------- RegistroLeche -------
         modelBuilder.Entity<RegistroLeche>(e =>
         {
             e.HasIndex(x => new { x.AnimalId, x.Fecha }).IsUnique();
-            e.Property(x => x.LitrosDia).HasColumnType("decimal(10,2)");
+            e.Property(x => x.LitrosDia).HasPrecision(10, 2);
             e.Property(x => x.Fecha).HasColumnType("date");
 
             e.HasOne(x => x.Animal)
-             .WithMany(a => a.RegistrosLeche)
-             .HasForeignKey(x => x.AnimalId)
-             .OnDelete(DeleteBehavior.Restrict);
+                .WithMany(a => a.RegistrosLeche)
+                .HasForeignKey(x => x.AnimalId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
-       
+        // ------- EventoSalud -------
         modelBuilder.Entity<EventoSalud>(e =>
         {
             e.Property(x => x.Fecha).HasColumnType("date");
             e.HasOne(x => x.Animal)
-             .WithMany(a => a.EventosSalud)
-             .HasForeignKey(x => x.AnimalId)
-             .OnDelete(DeleteBehavior.Restrict);
+                .WithMany(a => a.EventosSalud)
+                .HasForeignKey(x => x.AnimalId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
-       
+        // ------- Alerta -------
         modelBuilder.Entity<Alerta>(e =>
         {
             e.Property(x => x.Tipo).HasConversion<int>();
@@ -166,12 +178,12 @@ public class ApplicationDbContext : IdentityDbContext<IdentityUser>
             e.HasIndex(x => new { x.AnimalId, x.Tipo, x.FechaObjetivo });
 
             e.HasOne(x => x.Animal)
-             .WithMany(a => a.Alertas)
-             .HasForeignKey(x => x.AnimalId)
-             .OnDelete(DeleteBehavior.Restrict);
+                .WithMany(a => a.Alertas)
+                .HasForeignKey(x => x.AnimalId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
-       
+        // ------- Seed (valores constantes, NO DateTime.UtcNow) -------
         modelBuilder.Entity<Animal>().HasData(
             new Animal
             {
@@ -180,8 +192,10 @@ public class ApplicationDbContext : IdentityDbContext<IdentityUser>
                 Nombre = "Luna",
                 Raza = "Holstein",
                 EstadoReproductivo = EstadoReproductivo.Abierta,
-                CreatedAt = DateTime.UtcNow
+                // Fecha fija en UTC (constante) para que compile la migración:
+                CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             }
         );
     }
+
 }
