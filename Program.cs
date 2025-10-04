@@ -1,7 +1,9 @@
-﻿using GanaderiaControl.Data;
+using GanaderiaControl.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,7 +19,7 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(connectionString) // + opcional: .UseSnakeCaseNamingConvention()
+    options.UseNpgsql(connectionString)
 );
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
@@ -25,7 +27,7 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 builder.Services
     .AddDefaultIdentity<IdentityUser>(options =>
     {
-        options.SignIn.RequireConfirmedAccount = false; // prod: true si quieres confirmar correo
+        options.SignIn.RequireConfirmedAccount = false;
         options.Password.RequiredLength = 6;
         options.Password.RequireDigit = false;
         options.Password.RequireUppercase = false;
@@ -34,8 +36,31 @@ builder.Services
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
-builder.Services.AddControllersWithViews();
-builder.Services.AddRazorPages();
+// ⬇️ Protege TODO lo MVC por defecto
+builder.Services.AddControllersWithViews(opt =>
+{
+    var policy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+    opt.Filters.Add(new AuthorizeFilter(policy));
+});
+
+// ⬇️ PERMITE anónimo en las páginas de Identity (incluye /Account/Login)
+builder.Services.AddRazorPages(options =>
+{
+    options.Conventions.AllowAnonymousToAreaFolder("Identity", "/Account");
+    // si quisieras ser más específico:
+    // options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/Login");
+});
+
+// ⬇️ Cookie de autenticación
+builder.Services.ConfigureApplicationCookie(opt =>
+{
+    opt.LoginPath = "/Identity/Account/Login";
+    opt.AccessDeniedPath = "/Identity/Account/AccessDenied";
+    opt.SlidingExpiration = true;
+    opt.ExpireTimeSpan = TimeSpan.FromHours(8);
+});
 
 // Respeta X-Forwarded-* (útil detrás de proxy/CDN)
 builder.Services.Configure<ForwardedHeadersOptions>(opt =>
@@ -72,8 +97,8 @@ app.MapGet("/health", () => Results.Ok("OK"));
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    db.Database.Migrate();                 // aplica migraciones en cada deploy
-    await SeedIdentityAsync(scope.ServiceProvider); // crea roles/usuario admin
+    db.Database.Migrate();
+    await SeedIdentityAsync(scope.ServiceProvider);
 }
 
 // Rutas MVC + Razor Pages
@@ -95,7 +120,7 @@ static async Task SeedIdentityAsync(IServiceProvider services)
             await roleManager.CreateAsync(new IdentityRole(role));
 
     var email = "admin@local.com";
-    var password = "Admin123!"; // cambia en prod
+    var password = "Admin123!";
     var user = await userManager.FindByEmailAsync(email);
 
     if (user == null)

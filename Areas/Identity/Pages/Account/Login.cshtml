@@ -1,0 +1,104 @@
+﻿@page
+@model LoginModel
+@{
+    ViewData["Title"] = "Iniciar sesión";
+    Layout = null; // pantalla limpia, sin navbar/layout
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Login | Sistema Ganadero</title>
+
+    <!-- Usa tu Bootstrap local -->
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <style>
+        body {
+            background: linear-gradient(rgba(0,0,0,.5), rgba(0,0,0,.5)), url('https://images.unsplash.com/photo-1605810230434-7631ac7f0fdb?auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
+            background-size: cover;
+            font-family: 'Poppins', system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+            min-height: 100vh;
+        }
+
+        .login-card {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 16px;
+            box-shadow: 0 8px 30px rgba(0,0,0,.2);
+            padding: 2rem;
+        }
+
+        .btn-green {
+            background-color: #3d9970;
+            color: #fff;
+            transition: all 0.3s ease;
+            border: none;
+            font-weight: 600;
+        }
+
+            .btn-green:hover {
+                background-color: #2e7d57;
+            }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #3d9970;
+        }
+
+        .form-control:focus {
+            border-color: #3d9970;
+            box-shadow: 0 0 0 .2rem rgba(61,153,112,.15);
+        }
+    </style>
+</head>
+<body>
+    <div class="d-flex justify-content-center align-items-center vh-100">
+        <div class="login-card col-11 col-md-4">
+            <div class="text-center mb-4">
+                <div class="logo">GanaderíaApp</div>
+                <p class="text-muted mb-0">Acceso al sistema</p>
+            </div>
+
+            <!-- Validaciones -->
+            <div asp-validation-summary="ModelOnly" class="text-danger small mb-2" role="alert"></div>
+
+            <form id="account" method="post">
+                <div class="mb-3">
+                    <label asp-for="Input.Email" class="form-label">Usuario o Correo</label>
+                    <input asp-for="Input.Email" class="form-control" autocomplete="username" placeholder="ejemplo@correo.com" />
+                    <span asp-validation-for="Input.Email" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="Input.Password" class="form-label">Contraseña</label>
+                    <input asp-for="Input.Password" class="form-control" autocomplete="current-password" placeholder="••••••••" />
+                    <span asp-validation-for="Input.Password" class="text-danger small"></span>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" asp-for="Input.RememberMe" id="remember" />
+                        <label class="form-check-label" asp-for="Input.RememberMe">Recordarme</label>
+                    </div>
+                    <a asp-page="./ForgotPassword" class="small text-success text-decoration-none">¿Olvidaste tu contraseña?</a>
+                </div>
+
+                <button id="login-submit" type="submit" class="btn btn-green w-100">Ingresar</button>
+
+                
+        <div class="text-center mt-3">
+          <a asp-page="./Register" asp-route-returnUrl="@Model.ReturnUrl" class="small text-success text-decoration-none">Crear cuenta nueva</a>
+        </div>
+        
+            </form>
+        </div>
+    </div>
+
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    @section Scripts {
+        <partial name="_ValidationScriptsPartial" />
+    }
+</body>
+</html>
