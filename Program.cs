@@ -36,7 +36,7 @@ builder.Services
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
-// ⬇️ Protege TODO lo MVC por defecto
+// Protege todo MVC por defecto
 builder.Services.AddControllersWithViews(opt =>
 {
     var policy = new AuthorizationPolicyBuilder()
@@ -45,15 +45,12 @@ builder.Services.AddControllersWithViews(opt =>
     opt.Filters.Add(new AuthorizeFilter(policy));
 });
 
-// ⬇️ PERMITE anónimo en las páginas de Identity (incluye /Account/Login)
+// Razor Pages: deja anónimas las de Identity (login, register, etc.)
 builder.Services.AddRazorPages(options =>
 {
     options.Conventions.AllowAnonymousToAreaFolder("Identity", "/Account");
-    // si quisieras ser más específico:
-    // options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/Login");
 });
 
-// ⬇️ Cookie de autenticación
 builder.Services.ConfigureApplicationCookie(opt =>
 {
     opt.LoginPath = "/Identity/Account/Login";
@@ -62,7 +59,7 @@ builder.Services.ConfigureApplicationCookie(opt =>
     opt.ExpireTimeSpan = TimeSpan.FromHours(8);
 });
 
-// Respeta X-Forwarded-* (útil detrás de proxy/CDN)
+// Proxy/CDN
 builder.Services.Configure<ForwardedHeadersOptions>(opt =>
 {
     opt.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -90,10 +87,10 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// ---- Health check simple (para Render) ----
+// Health
 app.MapGet("/health", () => Results.Ok("OK"));
 
-// ---- Migraciones + Seed antes de arrancar ----
+// Migraciones + Seed
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -101,10 +98,13 @@ using (var scope = app.Services.CreateScope())
     await SeedIdentityAsync(scope.ServiceProvider);
 }
 
+// 🔁 Redirige la raíz siempre al Dashboard (evita que /Pages/Index.cshtml capture "/")
+app.MapGet("/", () => Results.Redirect("/Dashboard"));
+
 // Rutas MVC + Razor Pages
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}");
+    pattern: "{controller=Dashboard}/{action=Index}/{id?}");
 app.MapRazorPages();
 
 app.Run();
