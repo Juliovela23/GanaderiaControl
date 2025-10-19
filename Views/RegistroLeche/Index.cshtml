@@ -7,99 +7,201 @@
     string filtroDesde = ViewBag.FiltroDesde as string ?? "";
     string filtroHasta = ViewBag.FiltroHasta as string ?? "";
     int? filtroAnimalId = ViewBag.FiltroAnimalId as int?;
+    var totalReg = Model?.Count() ?? 0;
+    var totalLitros = Model?.Sum(x => x.LitrosDia) ?? 0m;
+    var promedio = totalReg > 0 ? totalLitros / totalReg : 0m;
 }
 
-<div class="container">
-    <div class="d-flex align-items-end justify-content-between mt-3 mb-3">
-        <div>
-            <h2 class="mb-0">Registros de Leche</h2>
-            <small class="text-muted">Filtra por vaca (Arete/Nombre) o por fechas</small>
-        </div>
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCreate">
-            <i class="bi bi-plus-lg"></i> Nuevo registro
-        </button>
+@section Styles {
+    <style>
+        .page-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            background: linear-gradient(90deg,#f8fafc,#eef6ff);
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 18px 22px;
+            box-shadow: 0 4px 16px rgba(0,0,0,.04);
+        }
+
+        .kpis {
+            display: grid;
+            grid-template-columns: repeat(3,minmax(0,1fr));
+            gap: 12px;
+        }
+
+        .kpi {
+            background: #fff;
+            border-radius: 14px;
+            border: 1px solid #eef2f7;
+            padding: 16px;
+            box-shadow: 0 6px 16px rgba(2,32,71,.05);
+        }
+
+            .kpi h6 {
+                margin: 0;
+                font-weight: 600;
+                color: #334155;
+                font-size: .85rem;
+            }
+
+            .kpi .val {
+                font-size: 1.4rem;
+                font-weight: 700;
+                color: #0f172a;
+            }
+
+        .filters .form-label {
+            font-weight: 600;
+            color: #334155;
+        }
+
+        .table thead th {
+            position: sticky;
+            top: 0;
+            background: #f8fafc;
+            z-index: 1;
+        }
+
+        .badge-cow {
+            background: #eef2ff;
+            color: #3730a3;
+            border: 1px solid #e0e7ff;
+        }
+
+        .card-outer {
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid #eaeef3;
+            box-shadow: 0 8px 22px rgba(2,32,71,.06);
+        }
+
+        .btn-primary {
+            border-radius: 10px;
+        }
+    </style>
+}
+
+<div class="page-title mt-3 mb-3">
+    <div>
+        <h2 class="mb-1" style="font-weight:800;color:#0f172a;">Registros de Leche</h2>
+        <div class="text-muted">Consulta, filtra y registra rápidamente la producción diaria</div>
     </div>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCreate">
+        + Nuevo registro
+    </button>
+</div>
 
-    <!-- Filtros -->
-    <form method="get" class="row g-3 mb-3">
-        <div class="col-md-3">
-            <label class="form-label">Buscar vaca</label>
-            <input name="q" value="@filtroQ" class="form-control" placeholder="Arete o Nombre">
-        </div>
-        <div class="col-md-3">
-            <label class="form-label">Vaca</label>
-            <select name="animalId" class="form-select">
-                <option value="">-- Todas --</option>
-                @foreach (var a in animales)
-                {
-                    <option value="@a.Value" selected="@(a.Value == (filtroAnimalId?.ToString() ?? "") ? "selected" : null)">
-                        @a.Text
-                    </option>
-                }
-            </select>
-        </div>
-        <div class="col-md-2">
-            <label class="form-label">Desde</label>
-            <input type="date" name="desde" value="@filtroDesde" class="form-control" />
-        </div>
-        <div class="col-md-2">
-            <label class="form-label">Hasta</label>
-            <input type="date" name="hasta" value="@filtroHasta" class="form-control" />
-        </div>
-        <div class="col-md-2 d-flex align-items-end gap-2">
-            <button type="submit" class="btn btn-outline-primary w-100">Filtrar</button>
-            <a asp-action="Index" class="btn btn-outline-secondary">Limpiar</a>
-        </div>
-    </form>
-
-    <!-- Tabla -->
-    <div class="table-responsive">
-        <table class="table table-sm table-striped align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th>Fecha</th>
-                    <th>Vaca</th>
-                    <th class="text-end">Litros</th>
-                    <th style="width: 160px;"></th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (!Model.Any())
-                {
-                    <tr>
-                        <td colspan="4" class="text-center text-muted py-4">
-                            No hay registros para los filtros seleccionados.
-                        </td>
-                    </tr>
-                }
-                else
-                {
-                    foreach (var r in Model)
-                    {
-                        var vaca = r.Animal is null
-                        ? "(sin datos)"
-                        : (string.IsNullOrWhiteSpace(r.Animal.Nombre) ? r.Animal.Arete : $"{r.Animal.Arete} - {r.Animal.Nombre}");
-                        <tr>
-                            <td>@r.Fecha.ToString("dd/MM/yyyy")</td>
-                            <td>@vaca</td>
-                            <td class="text-end">@r.LitrosDia.ToString("0.##")</td>
-                            <td class="text-end">
-                                <a asp-action="Details" asp-route-id="@r.Id" class="btn btn-sm btn-outline-secondary">Ver</a>
-                                <a asp-action="Edit" asp-route-id="@r.Id" class="btn btn-sm btn-outline-primary">Editar</a>
-                                <a asp-action="Delete" asp-route-id="@r.Id" class="btn btn-sm btn-outline-danger">Eliminar</a>
-                            </td>
-                        </tr>
-                    }
-                }
-            </tbody>
-        </table>
+<div class="kpis mb-3">
+    <div class="kpi">
+        <h6>Registros listados</h6>
+        <div class="val">@totalReg</div>
+    </div>
+    <div class="kpi">
+        <h6>Litros totales</h6>
+        <div class="val">@totalLitros.ToString("0.##") L</div>
+    </div>
+    <div class="kpi">
+        <h6>Promedio por registro</h6>
+        <div class="val">@promedio.ToString("0.##") L</div>
     </div>
 </div>
 
-<!-- Modal Crear -->
+<!-- Filtros -->
+<div class="card card-outer mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-3 filters">
+            <div class="col-md-3">
+                <label class="form-label">Buscar vaca</label>
+                <input name="q" value="@filtroQ" class="form-control" placeholder="Arete o Nombre">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Vaca</label>
+                <select name="animalId" class="form-select">
+                    <option value="">-- Todas --</option>
+                    @foreach (var a in animales)
+                    {
+                        <option value="@a.Value" selected="@(a.Value == (filtroAnimalId?.ToString() ?? "") ? "selected" : null)">
+                            @a.Text
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Desde</label>
+                <input type="date" name="desde" value="@filtroDesde" class="form-control" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Hasta</label>
+                <input type="date" name="hasta" value="@filtroHasta" class="form-control" />
+            </div>
+            <div class="col-md-2 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-outline-primary w-100">Filtrar</button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Limpiar</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla -->
+<div class="card card-outer">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-3">Fecha</th>
+                        <th>Vaca</th>
+                        <th class="text-end">Litros</th>
+                        <th class="text-end pe-3" style="width: 220px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Any())
+                    {
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-4">
+                                No hay registros para los filtros seleccionados.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        foreach (var r in Model)
+                        {
+                            var vaca = r.Animal is null
+                            ? "(sin datos)"
+                            : (string.IsNullOrWhiteSpace(r.Animal.Nombre) ? r.Animal.Arete : $"{r.Animal.Arete} - {r.Animal.Nombre}");
+                            <tr>
+                                <td class="ps-3">@r.Fecha.ToString("dd/MM/yyyy")</td>
+                                <td>
+                                    <span class="badge rounded-pill badge-cow">@vaca</span>
+                                </td>
+                                <td class="text-end">
+                                    <span class="fw-bold">@r.LitrosDia.ToString("0.##")</span> L
+                                </td>
+                                <td class="text-end pe-3">
+                                    <div class="btn-group">
+                                        <a asp-action="Details" asp-route-id="@r.Id" class="btn btn-sm btn-outline-secondary">Ver</a>
+                                        <a asp-action="Edit" asp-route-id="@r.Id" class="btn btn-sm btn-outline-primary">Editar</a>
+                                        <a asp-action="Delete" asp-route-id="@r.Id" class="btn btn-sm btn-outline-danger">Eliminar</a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Crear (POST directo a Create) -->
 <div class="modal fade" id="modalCreate" tabindex="-1" aria-labelledby="modalCreateLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:16px;">
             <form asp-action="Create" method="post">
                 @Html.AntiForgeryToken()
                 <div class="modal-header">
@@ -107,7 +209,6 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body">
-                    <!-- Reutilizamos los mismos campos del _Form, pero inline para no depender del ViewBag del GET/Create -->
                     <div class="mb-3">
                         <label class="form-label">Vaca</label>
                         <select name="AnimalId" class="form-select" required>
@@ -117,7 +218,7 @@
                                 <option value="@a.Value">@a.Text</option>
                             }
                         </select>
-                        <div class="form-text">Puedes buscar por Arete o Nombre en el filtro superior.</div>
+                        <div class="form-text">Si no aparece, verifica en el catálogo de Animales.</div>
                     </div>
 
                     <div class="mb-3">
@@ -127,7 +228,10 @@
 
                     <div class="mb-3">
                         <label class="form-label">Litros del día</label>
-                        <input name="LitrosDia" type="number" step="0.01" min="0" class="form-control" placeholder="0.00" required />
+                        <div class="input-group">
+                            <input name="LitrosDia" type="number" step="0.01" min="0" class="form-control" placeholder="0.00" required />
+                            <span class="input-group-text">L</span>
+                        </div>
                     </div>
 
                     <div asp-validation-summary="ModelOnly" class="text-danger"></div>

@@ -6,14 +6,26 @@
         : (string.IsNullOrWhiteSpace(Model.Animal.Nombre) ? Model.Animal.Arete : $"{Model.Animal.Arete} - {Model.Animal.Nombre}");
 }
 
-<div class="container">
-    <h2 class="mt-3 mb-3">¿Eliminar este registro?</h2>
+@section Styles {
+    <style>
+        .card-fancy {
+            border-radius: 16px;
+            border: 1px solid #eaeef3;
+            box-shadow: 0 8px 22px rgba(2,32,71,.06);
+        }
+    </style>
+}
 
-    <div class="alert alert-warning">
-        Esta acción no se puede deshacer.
+<div class="container">
+    <div class="d-flex align-items-center justify-content-between mt-3 mb-3">
+        <div>
+            <h2 class="mb-0">Eliminar registro</h2>
+            <div class="text-muted">Esta acción no se puede deshacer</div>
+        </div>
+        <a asp-action="Index" class="btn btn-outline-secondary">Volver</a>
     </div>
 
-    <div class="card mb-3">
+    <div class="card card-fancy mb-3">
         <div class="card-body">
             <dl class="row">
                 <dt class="col-sm-3">Vaca</dt>
@@ -23,7 +35,9 @@
                 <dd class="col-sm-9">@Model.Fecha.ToString("dd/MM/yyyy")</dd>
 
                 <dt class="col-sm-3">Litros del día</dt>
-                <dd class="col-sm-9">@Model.LitrosDia.ToString("0.##")</dd>
+                <dd class="col-sm-9">
+                    <span class="fw-bold">@Model.LitrosDia.ToString("0.##")</span> L
+                </dd>
             </dl>
         </div>
     </div>
@@ -31,7 +45,7 @@
     <form asp-action="Delete" method="post" class="d-flex gap-2">
         @Html.AntiForgeryToken()
         <input type="hidden" asp-for="Id" />
-        <a asp-action="Index" class="btn btn-outline-secondary">Cancelar</a>
         <button type="submit" class="btn btn-danger">Eliminar</button>
+        <a asp-action="Index" class="btn btn-light border">Cancelar</a>
     </form>
 </div>
