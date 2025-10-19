@@ -1,0 +1,37 @@
+﻿@model GanaderiaControl.Models.RegistroLeche
+@{
+    ViewData["Title"] = "Eliminar registro";
+    var vaca = Model.Animal is null
+        ? "(sin datos)"
+        : (string.IsNullOrWhiteSpace(Model.Animal.Nombre) ? Model.Animal.Arete : $"{Model.Animal.Arete} - {Model.Animal.Nombre}");
+}
+
+<div class="container">
+    <h2 class="mt-3 mb-3">¿Eliminar este registro?</h2>
+
+    <div class="alert alert-warning">
+        Esta acción no se puede deshacer.
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <dl class="row">
+                <dt class="col-sm-3">Vaca</dt>
+                <dd class="col-sm-9">@vaca</dd>
+
+                <dt class="col-sm-3">Fecha</dt>
+                <dd class="col-sm-9">@Model.Fecha.ToString("dd/MM/yyyy")</dd>
+
+                <dt class="col-sm-3">Litros del día</dt>
+                <dd class="col-sm-9">@Model.LitrosDia.ToString("0.##")</dd>
+            </dl>
+        </div>
+    </div>
+
+    <form asp-action="Delete" method="post" class="d-flex gap-2">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="Id" />
+        <a asp-action="Index" class="btn btn-outline-secondary">Cancelar</a>
+        <button type="submit" class="btn btn-danger">Eliminar</button>
+    </form>
+</div>

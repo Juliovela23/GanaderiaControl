@@ -1,0 +1,146 @@
+﻿@model IEnumerable<GanaderiaControl.Models.RegistroLeche>
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = "Registros de Leche";
+    var animales = ViewBag.Animales as List<SelectListItem> ?? new List<SelectListItem>();
+    string filtroQ = ViewBag.FiltroQ as string ?? "";
+    string filtroDesde = ViewBag.FiltroDesde as string ?? "";
+    string filtroHasta = ViewBag.FiltroHasta as string ?? "";
+    int? filtroAnimalId = ViewBag.FiltroAnimalId as int?;
+}
+
+<div class="container">
+    <div class="d-flex align-items-end justify-content-between mt-3 mb-3">
+        <div>
+            <h2 class="mb-0">Registros de Leche</h2>
+            <small class="text-muted">Filtra por vaca (Arete/Nombre) o por fechas</small>
+        </div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCreate">
+            <i class="bi bi-plus-lg"></i> Nuevo registro
+        </button>
+    </div>
+
+    <!-- Filtros -->
+    <form method="get" class="row g-3 mb-3">
+        <div class="col-md-3">
+            <label class="form-label">Buscar vaca</label>
+            <input name="q" value="@filtroQ" class="form-control" placeholder="Arete o Nombre">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Vaca</label>
+            <select name="animalId" class="form-select">
+                <option value="">-- Todas --</option>
+                @foreach (var a in animales)
+                {
+                    <option value="@a.Value" selected="@(a.Value == (filtroAnimalId?.ToString() ?? "") ? "selected" : null)">
+                        @a.Text
+                    </option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Desde</label>
+            <input type="date" name="desde" value="@filtroDesde" class="form-control" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Hasta</label>
+            <input type="date" name="hasta" value="@filtroHasta" class="form-control" />
+        </div>
+        <div class="col-md-2 d-flex align-items-end gap-2">
+            <button type="submit" class="btn btn-outline-primary w-100">Filtrar</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Limpiar</a>
+        </div>
+    </form>
+
+    <!-- Tabla -->
+    <div class="table-responsive">
+        <table class="table table-sm table-striped align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Fecha</th>
+                    <th>Vaca</th>
+                    <th class="text-end">Litros</th>
+                    <th style="width: 160px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Any())
+                {
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">
+                            No hay registros para los filtros seleccionados.
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    foreach (var r in Model)
+                    {
+                        var vaca = r.Animal is null
+                        ? "(sin datos)"
+                        : (string.IsNullOrWhiteSpace(r.Animal.Nombre) ? r.Animal.Arete : $"{r.Animal.Arete} - {r.Animal.Nombre}");
+                        <tr>
+                            <td>@r.Fecha.ToString("dd/MM/yyyy")</td>
+                            <td>@vaca</td>
+                            <td class="text-end">@r.LitrosDia.ToString("0.##")</td>
+                            <td class="text-end">
+                                <a asp-action="Details" asp-route-id="@r.Id" class="btn btn-sm btn-outline-secondary">Ver</a>
+                                <a asp-action="Edit" asp-route-id="@r.Id" class="btn btn-sm btn-outline-primary">Editar</a>
+                                <a asp-action="Delete" asp-route-id="@r.Id" class="btn btn-sm btn-outline-danger">Eliminar</a>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Crear -->
+<div class="modal fade" id="modalCreate" tabindex="-1" aria-labelledby="modalCreateLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="Create" method="post">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalCreateLabel">Nuevo registro de leche</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Reutilizamos los mismos campos del _Form, pero inline para no depender del ViewBag del GET/Create -->
+                    <div class="mb-3">
+                        <label class="form-label">Vaca</label>
+                        <select name="AnimalId" class="form-select" required>
+                            <option value="">-- Selecciona una vaca --</option>
+                            @foreach (var a in animales)
+                            {
+                                <option value="@a.Value">@a.Text</option>
+                            }
+                        </select>
+                        <div class="form-text">Puedes buscar por Arete o Nombre en el filtro superior.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Fecha</label>
+                        <input name="Fecha" type="date" value="@DateTime.Today.ToString("yyyy-MM-dd")" class="form-control" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Litros del día</label>
+                        <input name="LitrosDia" type="number" step="0.01" min="0" class="form-control" placeholder="0.00" required />
+                    </div>
+
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

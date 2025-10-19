@@ -7,4 +7,6 @@ public class RegistroLeche : AuditableEntity
     public Animal Animal { get; set; } = null!;
     public DateTime Fecha { get; set; }
     public decimal LitrosDia { get; set; }
+
+
 }
