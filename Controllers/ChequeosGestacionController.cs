@@ -7,10 +7,11 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace GanaderiaControl.Controllers
 {
-    [Authorize] // agrega Roles si ya los usas: [Authorize(Roles = "Admin,Operador")]
+    [Authorize] // [Authorize(Roles = "Admin,Operador")] si usas roles
     public class ChequeosGestacionController : Controller
     {
         private readonly ApplicationDbContext _db;
@@ -20,7 +21,10 @@ namespace GanaderiaControl.Controllers
         public async Task<IActionResult> Index(string? q)
         {
             var query = _db.ChequeosGestacion
+                .AsNoTracking()
+                .Where(c => !c.IsDeleted)
                 .Include(c => c.Animal)
+                .Where(c => c.Animal != null && !c.Animal.IsDeleted)
                 .OrderByDescending(c => c.FechaChequeo).ThenByDescending(c => c.Id)
                 .AsQueryable();
 
@@ -28,12 +32,12 @@ namespace GanaderiaControl.Controllers
             {
                 q = q.Trim();
                 query = query.Where(c =>
-                    c.Animal.Arete.Contains(q) ||
+                    (c.Animal.Arete != null && c.Animal.Arete.Contains(q)) ||
                     (c.Animal.Nombre != null && c.Animal.Nombre.Contains(q)) ||
-                    (c.Observaciones ?? "").Contains(q));
+                    ((c.Observaciones ?? "").Contains(q)));
             }
 
-            var list = await query.Take(200).ToListAsync(); // simple, puedes paginar luego
+            var list = await query.Take(200).ToListAsync();
             ViewBag.Q = q;
             return View(list);
         }
@@ -42,10 +46,12 @@ namespace GanaderiaControl.Controllers
         public async Task<IActionResult> Details(int id)
         {
             var model = await _db.ChequeosGestacion
+                .AsNoTracking()
+                .Where(x => !x.IsDeleted)
                 .Include(c => c.Animal)
                 .FirstOrDefaultAsync(m => m.Id == id);
 
-            if (model == null) return NotFound();
+            if (model == null || model.Animal == null || model.Animal.IsDeleted) return NotFound();
             return View(model);
         }
 
@@ -61,10 +67,21 @@ namespace GanaderiaControl.Controllers
         [HttpPost, ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("AnimalId,FechaChequeo,Resultado,Observaciones")] ChequeoGestacion model, bool crearAlertaReServicio = false)
         {
-            if (!await _db.Animales.AnyAsync(a => a.Id == model.AnimalId))
+            // Validar animal válido y no eliminado
+            var animalOk = await _db.Animales.AnyAsync(a => a.Id == model.AnimalId && !a.IsDeleted);
+            if (!animalOk)
                 ModelState.AddModelError(nameof(model.AnimalId), "Animal inválido.");
 
-            if (ModelState.IsValid)
+            model.FechaChequeo = model.FechaChequeo.Date;
+
+            if (!ModelState.IsValid)
+            {
+                await CargarAnimales(model.AnimalId);
+                ViewBag.CrearAlertaReServicio = crearAlertaReServicio;
+                return View(model);
+            }
+
+            try
             {
                 _db.Add(model);
                 await _db.SaveChangesAsync();
@@ -73,16 +90,21 @@ namespace GanaderiaControl.Controllers
                 TempData["Ok"] = "Chequeo registrado correctamente.";
                 return RedirectToAction(nameof(Index));
             }
-
-            await CargarAnimales(model.AnimalId);
-            ViewBag.CrearAlertaReServicio = crearAlertaReServicio;
-            return View(model);
+            catch (DbUpdateException ex) when (ex.InnerException is PostgresException pex)
+            {
+                ModelState.AddModelError(string.Empty, "No se pudo guardar: " + pex.MessageText);
+                await CargarAnimales(model.AnimalId);
+                ViewBag.CrearAlertaReServicio = crearAlertaReServicio;
+                return View(model);
+            }
         }
 
         // GET: /ChequeosGestacion/Edit/5
         public async Task<IActionResult> Edit(int id)
         {
-            var model = await _db.ChequeosGestacion.FindAsync(id);
+            var model = await _db.ChequeosGestacion
+                .Where(x => !x.IsDeleted)
+                .FirstOrDefaultAsync(x => x.Id == id);
             if (model == null) return NotFound();
 
             await CargarAnimales(model.AnimalId);
@@ -95,40 +117,55 @@ namespace GanaderiaControl.Controllers
         public async Task<IActionResult> Edit(int id, [Bind("Id,AnimalId,FechaChequeo,Resultado,Observaciones")] ChequeoGestacion model, bool crearAlertaReServicio = false)
         {
             if (id != model.Id) return NotFound();
-            if (!await _db.Animales.AnyAsync(a => a.Id == model.AnimalId))
+
+            var animalOk = await _db.Animales.AnyAsync(a => a.Id == model.AnimalId && !a.IsDeleted);
+            if (!animalOk)
                 ModelState.AddModelError(nameof(model.AnimalId), "Animal inválido.");
 
-            if (ModelState.IsValid)
+            model.FechaChequeo = model.FechaChequeo.Date;
+
+            if (!ModelState.IsValid)
             {
-                var current = await _db.ChequeosGestacion.FirstOrDefaultAsync(x => x.Id == id);
-                if (current == null) return NotFound();
+                await CargarAnimales(model.AnimalId);
+                ViewBag.CrearAlertaReServicio = crearAlertaReServicio;
+                return View(model);
+            }
 
-                current.AnimalId = model.AnimalId;
-                current.FechaChequeo = model.FechaChequeo.Date;
-                current.Resultado = model.Resultado;
-                current.Observaciones = model.Observaciones;
-                current.UpdatedAt = DateTime.UtcNow;
+            var current = await _db.ChequeosGestacion.FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
+            if (current == null) return NotFound();
 
+            current.AnimalId = model.AnimalId;
+            current.FechaChequeo = model.FechaChequeo;
+            current.Resultado = model.Resultado;
+            current.Observaciones = model.Observaciones;
+            current.UpdatedAt = DateTime.UtcNow;
+
+            try
+            {
                 await _db.SaveChangesAsync();
-
                 await AplicarLogicaAlertasPostChequeo(current, crearAlertaReServicio);
                 TempData["Ok"] = "Chequeo actualizado.";
                 return RedirectToAction(nameof(Index));
             }
-
-            await CargarAnimales(model.AnimalId);
-            ViewBag.CrearAlertaReServicio = crearAlertaReServicio;
-            return View(model);
+            catch (DbUpdateException ex) when (ex.InnerException is PostgresException pex)
+            {
+                ModelState.AddModelError(string.Empty, "Error al guardar: " + pex.MessageText);
+                await CargarAnimales(model.AnimalId);
+                ViewBag.CrearAlertaReServicio = crearAlertaReServicio;
+                return View(model);
+            }
         }
 
         // GET: /ChequeosGestacion/Delete/5
         public async Task<IActionResult> Delete(int id)
         {
             var model = await _db.ChequeosGestacion
+                .AsNoTracking()
+                .Where(x => !x.IsDeleted)
                 .Include(c => c.Animal)
                 .FirstOrDefaultAsync(m => m.Id == id);
 
-            if (model == null) return NotFound();
+            if (model == null || model.Animal == null || model.Animal.IsDeleted) return NotFound();
             return View(model);
         }
 
@@ -136,7 +173,7 @@ namespace GanaderiaControl.Controllers
         [HttpPost, ActionName("Delete"), ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var model = await _db.ChequeosGestacion.FirstOrDefaultAsync(m => m.Id == id);
+            var model = await _db.ChequeosGestacion.FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
             if (model == null) return NotFound();
 
             model.IsDeleted = true;
@@ -150,6 +187,8 @@ namespace GanaderiaControl.Controllers
         private async Task CargarAnimales(int? animalId = null)
         {
             var animales = await _db.Animales
+                .AsNoTracking()
+                .Where(a => !a.IsDeleted)
                 .OrderBy(a => a.Arete)
                 .Select(a => new { a.Id, Etiqueta = a.Arete + (a.Nombre != null ? " - " + a.Nombre : "") })
                 .ToListAsync();
@@ -159,14 +198,12 @@ namespace GanaderiaControl.Controllers
 
         private async Task AplicarLogicaAlertasPostChequeo(ChequeoGestacion chk, bool crearAlertaReServicio)
         {
-            // Actualiza estado del animal útil para tu dashboard
-            var animal = await _db.Animales.FirstOrDefaultAsync(a => a.Id == chk.AnimalId);
+            var animal = await _db.Animales.FirstOrDefaultAsync(a => a.Id == chk.AnimalId && !a.IsDeleted);
             if (animal != null)
             {
-                if (chk.Resultado == ResultadoGestacion.Gestante)
-                    animal.EstadoReproductivo = EstadoReproductivo.Gestante;
-                else if (chk.Resultado == ResultadoGestacion.NoGestante)
-                    animal.EstadoReproductivo = EstadoReproductivo.Abierta;
+                animal.EstadoReproductivo = chk.Resultado == ResultadoGestacion.Gestante
+                    ? EstadoReproductivo.Gestante
+                    : EstadoReproductivo.Abierta;
 
                 animal.UpdatedAt = DateTime.UtcNow;
                 await _db.SaveChangesAsync();
@@ -174,9 +211,8 @@ namespace GanaderiaControl.Controllers
 
             if (chk.Resultado == ResultadoGestacion.Gestante)
             {
-                // Usa el último servicio del animal si existe
                 var servicio = await _db.Servicios
-                    .Where(s => s.AnimalId == chk.AnimalId)
+                    .Where(s => s.AnimalId == chk.AnimalId && !s.IsDeleted)
                     .OrderByDescending(s => s.FechaServicio)
                     .FirstOrDefaultAsync();
 
@@ -184,20 +220,23 @@ namespace GanaderiaControl.Controllers
                 var fechaPartoProbable = fechaBase.AddDays(283);
 
                 await AsegurarAlerta(chk.AnimalId, TipoAlerta.PartoProbable, fechaPartoProbable,
-                    "Asegurada por chequeo Gestante (+283d desde el último servicio o fecha de chequeo).");
+                    "Chequeo Gestante (+283d desde último servicio o fecha de chequeo).");
             }
             else if (chk.Resultado == ResultadoGestacion.NoGestante && crearAlertaReServicio)
             {
                 var fechaReServicio = chk.FechaChequeo.Date.AddDays(21);
                 await AsegurarAlerta(chk.AnimalId, TipoAlerta.Salud, fechaReServicio,
-                    "Sugerencia de Re-servicio (+21d) tras resultado No Gestante.");
+                    "Re-servicio sugerido (+21d) tras resultado No Gestante.");
             }
         }
 
         private async Task AsegurarAlerta(int animalId, TipoAlerta tipo, DateTime fechaObjetivo, string? nota = null)
         {
             var existe = await _db.Alertas.AnyAsync(a =>
-                a.AnimalId == animalId && a.Tipo == tipo && a.FechaObjetivo == fechaObjetivo && !a.IsDeleted);
+                !a.IsDeleted &&
+                a.AnimalId == animalId &&
+                a.Tipo == tipo &&
+                a.FechaObjetivo == fechaObjetivo);
 
             if (!existe)
             {

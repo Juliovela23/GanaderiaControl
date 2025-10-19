@@ -2,35 +2,33 @@
 using System.Threading.Tasks;
 using GanaderiaControl.Data;
 using GanaderiaControl.Models;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using Npgsql; // <-- importante para PostgresException
 
 namespace GanaderiaControl.Controllers
 {
-   // [Authorize] 
     public class AnimalesController : Controller
     {
         private readonly ApplicationDbContext _context;
-
-        public AnimalesController(ApplicationDbContext context)
-        {
-            _context = context;
-        }
+        public AnimalesController(ApplicationDbContext context) => _context = context;
 
         // GET: Animales
         public async Task<IActionResult> Index(string? q)
         {
             var query = _context.Animales
                 .AsNoTracking()
+                .Where(a => !a.IsDeleted) // <--- filtra soft delete
                 .OrderByDescending(a => a.Id)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(q))
             {
                 q = q.Trim();
-                query = query.Where(a => a.Arete.Contains(q) || (a.Nombre != null && a.Nombre.Contains(q)));
+                query = query.Where(a =>
+                    a.Arete.Contains(q) ||
+                    (a.Nombre != null && a.Nombre.Contains(q)));
             }
 
             var list = await query.ToListAsync();
@@ -44,6 +42,8 @@ namespace GanaderiaControl.Controllers
             if (id == null) return NotFound();
 
             var animal = await _context.Animales
+                .AsNoTracking()
+                .Where(a => !a.IsDeleted)
                 .Include(a => a.Madre)
                 .Include(a => a.Padre)
                 .FirstOrDefaultAsync(m => m.Id == id);
@@ -64,18 +64,55 @@ namespace GanaderiaControl.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("Arete,Nombre,Raza,FechaNacimiento,EstadoReproductivo,MadreId,PadreId")] Animal animal)
         {
-            if (await _context.Animales.AnyAsync(a => a.Arete == animal.Arete))
-                ModelState.AddModelError(nameof(animal.Arete), "El arete ya existe.");
+            // normaliza arete y valida requerido
+            if (!string.IsNullOrWhiteSpace(animal.Arete))
+                animal.Arete = animal.Arete.Trim();
 
-            if (ModelState.IsValid)
+            if (string.IsNullOrWhiteSpace(animal.Arete))
+                ModelState.AddModelError(nameof(animal.Arete), "El arete es obligatorio.");
+
+            // arete único entre NO borrados
+            if (!string.IsNullOrWhiteSpace(animal.Arete))
+            {
+                bool dup = await _context.Animales
+                    .AnyAsync(a => !a.IsDeleted && a.Arete == animal.Arete);
+                if (dup)
+                    ModelState.AddModelError(nameof(animal.Arete), "El arete ya existe.");
+            }
+
+            // evitar auto-referencia
+            if (animal.MadreId.HasValue && animal.MadreId == animal.Id)
+                ModelState.AddModelError(nameof(animal.MadreId), "No puede ser su propia madre.");
+            if (animal.PadreId.HasValue && animal.PadreId == animal.Id)
+                ModelState.AddModelError(nameof(animal.PadreId), "No puede ser su propio padre.");
+
+            if (!ModelState.IsValid)
+            {
+                PopulatePadresSelect(animal.MadreId, animal.PadreId);
+                return View(animal);
+            }
+
+            try
             {
                 _context.Add(animal);
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
             }
+            catch (DbUpdateException ex) when (ex.InnerException is PostgresException pex)
+            {
+                // 23505 unique_violation, 23502 not_null, 23503 foreign_key_violation
+                if (pex.SqlState == PostgresErrorCodes.UniqueViolation)
+                    ModelState.AddModelError(nameof(animal.Arete), "El arete ya existe (índice único).");
+                else if (pex.SqlState == PostgresErrorCodes.NotNullViolation)
+                    ModelState.AddModelError(string.Empty, $"Falta un campo requerido.");
+                else if (pex.SqlState == PostgresErrorCodes.ForeignKeyViolation)
+                    ModelState.AddModelError(string.Empty, "Referencia inválida (Madre/Padre).");
+                else
+                    ModelState.AddModelError(string.Empty, "No se pudo guardar el registro: " + pex.MessageText);
 
-            PopulatePadresSelect(animal.MadreId, animal.PadreId);
-            return View(animal);
+                PopulatePadresSelect(animal.MadreId, animal.PadreId);
+                return View(animal);
+            }
         }
 
         // GET: Animales/Edit/5
@@ -83,7 +120,9 @@ namespace GanaderiaControl.Controllers
         {
             if (id == null) return NotFound();
 
-            var animal = await _context.Animales.FindAsync(id);
+            var animal = await _context.Animales
+                .Where(a => !a.IsDeleted)
+                .FirstOrDefaultAsync(a => a.Id == id);
             if (animal == null) return NotFound();
 
             PopulatePadresSelect(animal.MadreId, animal.PadreId, excludeId: animal.Id);
@@ -97,8 +136,21 @@ namespace GanaderiaControl.Controllers
         {
             if (id != animal.Id) return NotFound();
 
-            if (await _context.Animales.AnyAsync(a => a.Arete == animal.Arete && a.Id != animal.Id))
+            if (!string.IsNullOrWhiteSpace(animal.Arete))
+                animal.Arete = animal.Arete.Trim();
+
+            if (string.IsNullOrWhiteSpace(animal.Arete))
+                ModelState.AddModelError(nameof(animal.Arete), "El arete es obligatorio.");
+
+            bool dup = await _context.Animales
+                .AnyAsync(a => !a.IsDeleted && a.Arete == animal.Arete && a.Id != animal.Id);
+            if (dup)
                 ModelState.AddModelError(nameof(animal.Arete), "El arete ya está asignado a otro animal.");
+
+            if (animal.MadreId.HasValue && animal.MadreId == animal.Id)
+                ModelState.AddModelError(nameof(animal.MadreId), "No puede ser su propia madre.");
+            if (animal.PadreId.HasValue && animal.PadreId == animal.Id)
+                ModelState.AddModelError(nameof(animal.PadreId), "No puede ser su propio padre.");
 
             if (!ModelState.IsValid)
             {
@@ -108,7 +160,7 @@ namespace GanaderiaControl.Controllers
 
             try
             {
-                var entity = await _context.Animales.FirstAsync(a => a.Id == animal.Id);
+                var entity = await _context.Animales.FirstAsync(a => a.Id == animal.Id && !a.IsDeleted);
                 entity.Arete = animal.Arete;
                 entity.Nombre = animal.Nombre;
                 entity.Raza = animal.Raza;
@@ -120,9 +172,15 @@ namespace GanaderiaControl.Controllers
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
             }
-            catch (DbUpdateException)
+            catch (DbUpdateException ex) when (ex.InnerException is PostgresException pex)
             {
-                ModelState.AddModelError("", "Error al guardar. Verifica que el arete sea único.");
+                if (pex.SqlState == PostgresErrorCodes.UniqueViolation)
+                    ModelState.AddModelError(nameof(animal.Arete), "El arete ya existe (índice único).");
+                else if (pex.SqlState == PostgresErrorCodes.ForeignKeyViolation)
+                    ModelState.AddModelError(string.Empty, "Referencia inválida (Madre/Padre).");
+                else
+                    ModelState.AddModelError(string.Empty, "Error al guardar: " + pex.MessageText);
+
                 PopulatePadresSelect(animal.MadreId, animal.PadreId, excludeId: animal.Id);
                 return View(animal);
             }
@@ -132,7 +190,12 @@ namespace GanaderiaControl.Controllers
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null) return NotFound();
-            var animal = await _context.Animales.AsNoTracking().FirstOrDefaultAsync(m => m.Id == id);
+
+            var animal = await _context.Animales
+                .AsNoTracking()
+                .Where(a => !a.IsDeleted)
+                .FirstOrDefaultAsync(m => m.Id == id);
+
             if (animal == null) return NotFound();
             return View(animal);
         }
@@ -142,7 +205,7 @@ namespace GanaderiaControl.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var animal = await _context.Animales.FirstOrDefaultAsync(a => a.Id == id);
+            var animal = await _context.Animales.FirstOrDefaultAsync(a => a.Id == id && !a.IsDeleted);
             if (animal == null) return NotFound();
 
             animal.IsDeleted = true; // soft delete
@@ -152,7 +215,12 @@ namespace GanaderiaControl.Controllers
 
         private void PopulatePadresSelect(int? madreId = null, int? padreId = null, int? excludeId = null)
         {
-            var baseQuery = _context.Animales.AsNoTracking().OrderBy(a => a.Arete).AsQueryable();
+            var baseQuery = _context.Animales
+                .AsNoTracking()
+                .Where(a => !a.IsDeleted) // <--- no listar eliminados
+                .OrderBy(a => a.Arete)
+                .AsQueryable();
+
             if (excludeId.HasValue) baseQuery = baseQuery.Where(a => a.Id != excludeId);
 
             ViewData["MadreId"] = new SelectList(baseQuery, "Id", "Arete", madreId);

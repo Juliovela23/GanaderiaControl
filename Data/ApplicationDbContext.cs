@@ -9,10 +9,9 @@ public class ApplicationDbContext : IdentityDbContext<IdentityUser>
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
 
-    
     public DbSet<Animal> Animales => Set<Animal>();
     public DbSet<ServicioReproductivo> Servicios => Set<ServicioReproductivo>();
-    public DbSet<ChequeoGestacion> Chequeos => Set<ChequeoGestacion>();
+    public DbSet<ChequeoGestacion> ChequeosGestacion => Set<ChequeoGestacion>(); // ✅ uno solo basta
     public DbSet<Secado> Secados => Set<Secado>();
     public DbSet<Parto> Partos => Set<Parto>();
     public DbSet<Cria> Crias => Set<Cria>();
@@ -20,16 +19,12 @@ public class ApplicationDbContext : IdentityDbContext<IdentityUser>
     public DbSet<RegistroLeche> RegistrosLeche => Set<RegistroLeche>();
     public DbSet<EventoSalud> EventosSalud => Set<EventoSalud>();
     public DbSet<Alerta> Alertas => Set<Alerta>();
-    public DbSet<ChequeoGestacion> ChequeosGestacion => Set<ChequeoGestacion>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // (Opcional) Si quieres que todo vaya al esquema "public"
-        // modelBuilder.HasDefaultSchema("public");
-
-        // Filtros soft-delete
+        // --- Soft-delete global ---
         modelBuilder.Entity<Animal>().HasQueryFilter(x => !x.IsDeleted);
         modelBuilder.Entity<ServicioReproductivo>().HasQueryFilter(x => !x.IsDeleted);
         modelBuilder.Entity<ChequeoGestacion>().HasQueryFilter(x => !x.IsDeleted);
@@ -44,7 +39,11 @@ public class ApplicationDbContext : IdentityDbContext<IdentityUser>
         // ------- Animal -------
         modelBuilder.Entity<Animal>(e =>
         {
-            e.HasIndex(x => x.Arete).IsUnique();
+            // ✅ índice único parcial para reusar arete cuando el otro está soft-deleted
+            e.HasIndex(x => x.Arete)
+             .IsUnique()
+             .HasFilter("\"IsDeleted\" = FALSE");
+
             e.Property(x => x.EstadoReproductivo).HasConversion<int>();
 
             e.HasOne(x => x.Madre)
@@ -63,7 +62,7 @@ public class ApplicationDbContext : IdentityDbContext<IdentityUser>
         {
             e.HasIndex(x => new { x.AnimalId, x.FechaServicio });
             e.Property(x => x.Tipo).HasConversion<int>();
-            e.Property(x => x.FechaServicio).HasColumnType("date"); // OK en Postgres
+            e.Property(x => x.FechaServicio).HasColumnType("date");
 
             e.HasOne(x => x.Animal)
                 .WithMany(a => a.Servicios)
@@ -118,7 +117,6 @@ public class ApplicationDbContext : IdentityDbContext<IdentityUser>
         modelBuilder.Entity<Cria>(e =>
         {
             e.Property(x => x.Sexo).HasConversion<int>();
-            // Antes: HasColumnType("decimal(10,2)")  -> Postgres:
             e.Property(x => x.PesoNacimientoKg).HasPrecision(10, 2);
 
             e.HasOne(x => x.Parto)
@@ -139,11 +137,8 @@ public class ApplicationDbContext : IdentityDbContext<IdentityUser>
                 .HasForeignKey(x => x.AnimalId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // Check constraint (elige UNA de las dos versiones):
-            // Si NO usas UseSnakeCaseNamingConvention():
+            // Check constraint (ajusta nombre si usas snake_case en Npgsql)
             e.HasCheckConstraint("CK_Lactancia_Fechas", "\"FechaFin\" IS NULL OR \"FechaFin\" >= \"FechaInicio\"");
-            // Si SÍ usas UseSnakeCaseNamingConvention(), usa esta en cambio:
-            // e.HasCheckConstraint("ck_lactancia_fechas", "fecha_fin IS NULL OR fecha_fin >= fecha_inicio");
         });
 
         // ------- RegistroLeche -------
@@ -183,7 +178,7 @@ public class ApplicationDbContext : IdentityDbContext<IdentityUser>
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
-        // ------- Seed (valores constantes, NO DateTime.UtcNow) -------
+        // ------- Seed (opcional) -------
         modelBuilder.Entity<Animal>().HasData(
             new Animal
             {
@@ -192,10 +187,9 @@ public class ApplicationDbContext : IdentityDbContext<IdentityUser>
                 Nombre = "Luna",
                 Raza = "Holstein",
                 EstadoReproductivo = EstadoReproductivo.Abierta,
-                // Fecha fija en UTC (constante) para que compile la migración:
+                IsDeleted = false, // <- explícito por si no hay default
                 CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             }
         );
     }
-
 }
