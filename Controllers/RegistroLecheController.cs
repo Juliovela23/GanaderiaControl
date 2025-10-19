@@ -1,16 +1,14 @@
 ﻿using System;
 using System.Linq;
 using System.Threading.Tasks;
-using GanaderiaControl.Data;                // Ajusta si tu namespace del DbContext es otro
-using GanaderiaControl.Models;             // Ajusta si corresponde
-using Microsoft.AspNetCore.Authorization;  // Opcional si usas [Authorize]
+using GanaderiaControl.Data;
+using GanaderiaControl.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
 namespace GanaderiaControl.Controllers
 {
-    // [Authorize] // Descomenta si manejas auth
     public class RegistroLecheController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -20,9 +18,7 @@ namespace GanaderiaControl.Controllers
             _context = context;
         }
 
-        // ======================= LISTADO =======================
-        // GET: /RegistroLeche
-        // Filtros: q (Arete/Nombre de la vaca), animalId, desde, hasta
+        // LISTADO
         public async Task<IActionResult> Index(string? q, int? animalId, DateTime? desde, DateTime? hasta)
         {
             var query = _context.RegistrosLeche
@@ -44,17 +40,15 @@ namespace GanaderiaControl.Controllers
                 query = query.Where(r => r.Fecha >= desde.Value.Date);
             if (hasta.HasValue)
             {
-                var h = hasta.Value.Date.AddDays(1).AddTicks(-1); // fin del día
+                var h = hasta.Value.Date.AddDays(1).AddTicks(-1);
                 query = query.Where(r => r.Fecha <= h);
             }
 
-            // Orden más útil: fecha desc, luego arete
             var items = await query
                 .OrderByDescending(r => r.Fecha)
                 .ThenBy(r => r.Animal.Arete)
                 .ToListAsync();
 
-            // Para filtros en la vista
             ViewBag.Animales = await _context.Animales
                 .OrderBy(a => a.Arete)
                 .Select(a => new SelectListItem
@@ -72,7 +66,7 @@ namespace GanaderiaControl.Controllers
             return View(items);
         }
 
-        // ======================= DETALLE =======================
+        // DETALLE
         public async Task<IActionResult> Details(int id)
         {
             var registro = await _context.RegistrosLeche
@@ -83,7 +77,7 @@ namespace GanaderiaControl.Controllers
             return View(registro);
         }
 
-        // ======================= CREAR =======================
+        // CREAR
         public async Task<IActionResult> Create()
         {
             await CargarAnimalesSelectAsync();
@@ -94,10 +88,8 @@ namespace GanaderiaControl.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("AnimalId,Fecha,LitrosDia")] RegistroLeche registro)
         {
-            // Normalizar fecha a solo día (por si la vista manda con hora)
             registro.Fecha = registro.Fecha.Date;
 
-            // Validar duplicado: una vaca no debería tener dos registros el mismo día
             bool existe = await _context.RegistrosLeche
                 .AnyAsync(r => r.AnimalId == registro.AnimalId && r.Fecha == registro.Fecha);
 
@@ -110,12 +102,15 @@ namespace GanaderiaControl.Controllers
                 return View(registro);
             }
 
+            // Auditoría opcional si tu modelo la tiene:
+            // registro.CreatedAt = DateTime.UtcNow; registro.UpdatedAt = DateTime.UtcNow;
+
             _context.Add(registro);
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
 
-        // ======================= EDITAR =======================
+        // EDITAR
         public async Task<IActionResult> Edit(int id)
         {
             var registro = await _context.RegistrosLeche.FindAsync(id);
@@ -133,7 +128,6 @@ namespace GanaderiaControl.Controllers
 
             registro.Fecha = registro.Fecha.Date;
 
-            // Validar duplicado cuando se cambia fecha/animal
             bool existeOtro = await _context.RegistrosLeche
                 .AnyAsync(r => r.Id != registro.Id &&
                                r.AnimalId == registro.AnimalId &&
@@ -149,6 +143,14 @@ namespace GanaderiaControl.Controllers
 
             try
             {
+                // Si tienes UpdatedAt (timestamptz):
+                // var cur = await _context.RegistrosLeche.FirstAsync(x => x.Id == id);
+                // cur.AnimalId = registro.AnimalId;
+                // cur.Fecha = registro.Fecha;
+                // cur.LitrosDia = registro.LitrosDia;
+                // cur.UpdatedAt = DateTime.UtcNow;
+                // await _context.SaveChangesAsync();
+
                 _context.Update(registro);
                 await _context.SaveChangesAsync();
             }
@@ -162,7 +164,7 @@ namespace GanaderiaControl.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // ======================= ELIMINAR =======================
+        // ELIMINAR
         public async Task<IActionResult> Delete(int id)
         {
             var registro = await _context.RegistrosLeche
@@ -186,7 +188,7 @@ namespace GanaderiaControl.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // ======================= AUXILIARES =======================
+        // AUXILIARES
         private async Task CargarAnimalesSelectAsync(int? seleccionadoId = null)
         {
             var lista = await _context.Animales
@@ -204,8 +206,6 @@ namespace GanaderiaControl.Controllers
         private Task<bool> RegistroExists(int id) =>
             _context.RegistrosLeche.AnyAsync(e => e.Id == id);
 
-        // ======================= ENDPOINTS PARA MODAL / AJAX (Opcional) =======================
-        // Devuelve las vacas en JSON para armar dropdowns dinámicos en un modal
         [HttpGet]
         public async Task<IActionResult> AnimalesLookup(string? q)
         {

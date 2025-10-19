@@ -111,7 +111,9 @@ namespace GanaderiaControl.Controllers
 
             try
             {
-                alerta.CreatedAt = DateTime.UtcNow;
+                alerta.CreatedAt = DateTime.UtcNow;  // UTC para timestamptz
+                alerta.UpdatedAt = DateTime.UtcNow;
+
                 _context.Alertas.Add(alerta);
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
@@ -168,7 +170,7 @@ namespace GanaderiaControl.Controllers
                 entity.Estado = alerta.Estado;
                 entity.Disparador = alerta.Disparador;
                 entity.Notas = alerta.Notas;
-                entity.UpdatedAt = DateTime.UtcNow;
+                entity.UpdatedAt = DateTime.UtcNow; // UTC
 
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
@@ -205,7 +207,7 @@ namespace GanaderiaControl.Controllers
             if (alerta == null) return NotFound();
 
             alerta.IsDeleted = true;
-            alerta.UpdatedAt = DateTime.UtcNow;
+            alerta.UpdatedAt = DateTime.UtcNow; // UTC
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
@@ -253,7 +255,7 @@ namespace GanaderiaControl.Controllers
             foreach (var a in vencidas)
             {
                 a.Estado = EstadoAlerta.Vencida;
-                a.UpdatedAt = DateTime.UtcNow;
+                a.UpdatedAt = DateTime.UtcNow; // UTC
             }
             await _context.SaveChangesAsync();
         }

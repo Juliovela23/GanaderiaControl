@@ -67,14 +67,12 @@ namespace GanaderiaControl.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(ServicioReproductivo s)
         {
-            // FK válida
             var animalOk = await _context.Animales.AnyAsync(a => a.Id == s.AnimalId && !a.IsDeleted);
             if (!animalOk)
                 ModelState.AddModelError(nameof(s.AnimalId), "Animal inválido.");
 
             s.FechaServicio = s.FechaServicio.Date;
 
-            // duplicado mismo día
             if (await _context.Servicios.AnyAsync(x =>
                 !x.IsDeleted &&
                 x.AnimalId == s.AnimalId &&
@@ -91,6 +89,9 @@ namespace GanaderiaControl.Controllers
 
             try
             {
+                s.CreatedAt = DateTime.UtcNow; // UTC
+                s.UpdatedAt = DateTime.UtcNow;
+
                 _context.Servicios.Add(s);
                 await _context.SaveChangesAsync();
 
@@ -152,6 +153,7 @@ namespace GanaderiaControl.Controllers
                 entity.Tipo = servicio.Tipo;
                 entity.ToroOProveedor = servicio.ToroOProveedor;
                 entity.Observaciones = servicio.Observaciones;
+                entity.UpdatedAt = DateTime.UtcNow; // UTC
 
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
@@ -188,6 +190,7 @@ namespace GanaderiaControl.Controllers
             if (servicio == null) return NotFound();
 
             servicio.IsDeleted = true;
+            servicio.UpdatedAt = DateTime.UtcNow; // UTC
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
@@ -215,9 +218,9 @@ namespace GanaderiaControl.Controllers
 
             var alertas = new List<Alerta>
             {
-                new Alerta{ AnimalId=s.AnimalId, Tipo=TipoAlerta.ChequeoGestacion, Estado=EstadoAlerta.Pendiente, FechaObjetivo=baseDate.AddDays(32), Disparador=$"Servicio #{s.Id} del {baseDate:yyyy-MM-dd}", Notas="Chequeo gestación (~32d)" },
-                new Alerta{ AnimalId=s.AnimalId, Tipo=TipoAlerta.Secado,            Estado=EstadoAlerta.Pendiente, FechaObjetivo=baseDate.AddDays(210),Disparador=$"Servicio #{s.Id} del {baseDate:yyyy-MM-dd}", Notas="Secado estimado (~210d)" },
-                new Alerta{ AnimalId=s.AnimalId, Tipo=TipoAlerta.PartoProbable,    Estado=EstadoAlerta.Pendiente, FechaObjetivo=baseDate.AddDays(283),Disparador=$"Servicio #{s.Id} del {baseDate:yyyy-MM-dd}", Notas="Parto probable (~283d)" }
+                new Alerta{ AnimalId=s.AnimalId, Tipo=TipoAlerta.ChequeoGestacion, Estado=EstadoAlerta.Pendiente, FechaObjetivo=baseDate.AddDays(32), Disparador=$"Servicio #{s.Id} del {baseDate:yyyy-MM-dd}", Notas="Chequeo gestación (~32d)", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow },
+                new Alerta{ AnimalId=s.AnimalId, Tipo=TipoAlerta.Secado,            Estado=EstadoAlerta.Pendiente, FechaObjetivo=baseDate.AddDays(210),Disparador=$"Servicio #{s.Id} del {baseDate:yyyy-MM-dd}", Notas="Secado estimado (~210d)", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow },
+                new Alerta{ AnimalId=s.AnimalId, Tipo=TipoAlerta.PartoProbable,    Estado=EstadoAlerta.Pendiente, FechaObjetivo=baseDate.AddDays(283),Disparador=$"Servicio #{s.Id} del {baseDate:yyyy-MM-dd}", Notas="Parto probable (~283d)", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow }
             };
 
             foreach (var a in alertas)

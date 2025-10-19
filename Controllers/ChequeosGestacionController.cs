@@ -11,13 +11,12 @@ using Npgsql;
 
 namespace GanaderiaControl.Controllers
 {
-    [Authorize] // [Authorize(Roles = "Admin,Operador")] si usas roles
+    [Authorize]
     public class ChequeosGestacionController : Controller
     {
         private readonly ApplicationDbContext _db;
         public ChequeosGestacionController(ApplicationDbContext db) { _db = db; }
 
-        // GET: /ChequeosGestacion
         public async Task<IActionResult> Index(string? q)
         {
             var query = _db.ChequeosGestacion
@@ -42,7 +41,6 @@ namespace GanaderiaControl.Controllers
             return View(list);
         }
 
-        // GET: /ChequeosGestacion/Details/5
         public async Task<IActionResult> Details(int id)
         {
             var model = await _db.ChequeosGestacion
@@ -55,7 +53,6 @@ namespace GanaderiaControl.Controllers
             return View(model);
         }
 
-        // GET: /ChequeosGestacion/Create
         public async Task<IActionResult> Create(int? animalId)
         {
             await CargarAnimales(animalId);
@@ -63,11 +60,9 @@ namespace GanaderiaControl.Controllers
             return View(new ChequeoGestacion { FechaChequeo = DateTime.Today });
         }
 
-        // POST: /ChequeosGestacion/Create
         [HttpPost, ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("AnimalId,FechaChequeo,Resultado,Observaciones")] ChequeoGestacion model, bool crearAlertaReServicio = false)
         {
-            // Validar animal válido y no eliminado
             var animalOk = await _db.Animales.AnyAsync(a => a.Id == model.AnimalId && !a.IsDeleted);
             if (!animalOk)
                 ModelState.AddModelError(nameof(model.AnimalId), "Animal inválido.");
@@ -83,6 +78,9 @@ namespace GanaderiaControl.Controllers
 
             try
             {
+                model.CreatedAt = DateTime.UtcNow; // UTC
+                model.UpdatedAt = DateTime.UtcNow;
+
                 _db.Add(model);
                 await _db.SaveChangesAsync();
 
@@ -99,7 +97,6 @@ namespace GanaderiaControl.Controllers
             }
         }
 
-        // GET: /ChequeosGestacion/Edit/5
         public async Task<IActionResult> Edit(int id)
         {
             var model = await _db.ChequeosGestacion
@@ -112,7 +109,6 @@ namespace GanaderiaControl.Controllers
             return View(model);
         }
 
-        // POST: /ChequeosGestacion/Edit/5
         [HttpPost, ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, [Bind("Id,AnimalId,FechaChequeo,Resultado,Observaciones")] ChequeoGestacion model, bool crearAlertaReServicio = false)
         {
@@ -138,7 +134,7 @@ namespace GanaderiaControl.Controllers
             current.FechaChequeo = model.FechaChequeo;
             current.Resultado = model.Resultado;
             current.Observaciones = model.Observaciones;
-            current.UpdatedAt = DateTime.UtcNow;
+            current.UpdatedAt = DateTime.UtcNow; // UTC
 
             try
             {
@@ -156,7 +152,6 @@ namespace GanaderiaControl.Controllers
             }
         }
 
-        // GET: /ChequeosGestacion/Delete/5
         public async Task<IActionResult> Delete(int id)
         {
             var model = await _db.ChequeosGestacion
@@ -169,7 +164,6 @@ namespace GanaderiaControl.Controllers
             return View(model);
         }
 
-        // POST: /ChequeosGestacion/Delete/5
         [HttpPost, ActionName("Delete"), ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
@@ -177,7 +171,7 @@ namespace GanaderiaControl.Controllers
             if (model == null) return NotFound();
 
             model.IsDeleted = true;
-            model.UpdatedAt = DateTime.UtcNow;
+            model.UpdatedAt = DateTime.UtcNow; // UTC
             await _db.SaveChangesAsync();
 
             TempData["Ok"] = "Chequeo eliminado.";
@@ -205,7 +199,7 @@ namespace GanaderiaControl.Controllers
                     ? EstadoReproductivo.Gestante
                     : EstadoReproductivo.Abierta;
 
-                animal.UpdatedAt = DateTime.UtcNow;
+                animal.UpdatedAt = DateTime.UtcNow; // UTC
                 await _db.SaveChangesAsync();
             }
 
@@ -244,10 +238,11 @@ namespace GanaderiaControl.Controllers
                 {
                     AnimalId = animalId,
                     Tipo = tipo,
-                    FechaObjetivo = fechaObjetivo,
+                    FechaObjetivo = fechaObjetivo.Date,
                     Estado = EstadoAlerta.Pendiente,
                     Notas = nota,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow, // UTC
+                    UpdatedAt = DateTime.UtcNow
                 });
                 await _db.SaveChangesAsync();
             }

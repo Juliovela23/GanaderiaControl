@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Npgsql; // <-- importante para PostgresException
+using System;
 
 namespace GanaderiaControl.Controllers
 {
@@ -19,7 +20,7 @@ namespace GanaderiaControl.Controllers
         {
             var query = _context.Animales
                 .AsNoTracking()
-                .Where(a => !a.IsDeleted) // <--- filtra soft delete
+                .Where(a => !a.IsDeleted)
                 .OrderByDescending(a => a.Id)
                 .AsQueryable();
 
@@ -64,14 +65,17 @@ namespace GanaderiaControl.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("Arete,Nombre,Raza,FechaNacimiento,EstadoReproductivo,MadreId,PadreId")] Animal animal)
         {
-            // normaliza arete y valida requerido
+            // Normaliza entradas
             if (!string.IsNullOrWhiteSpace(animal.Arete))
                 animal.Arete = animal.Arete.Trim();
+
+            if (animal.FechaNacimiento != null)
+                animal.FechaNacimiento = animal.FechaNacimiento.Value.Date;
 
             if (string.IsNullOrWhiteSpace(animal.Arete))
                 ModelState.AddModelError(nameof(animal.Arete), "El arete es obligatorio.");
 
-            // arete único entre NO borrados
+            // Arete único (no borrados)
             if (!string.IsNullOrWhiteSpace(animal.Arete))
             {
                 bool dup = await _context.Animales
@@ -80,7 +84,7 @@ namespace GanaderiaControl.Controllers
                     ModelState.AddModelError(nameof(animal.Arete), "El arete ya existe.");
             }
 
-            // evitar auto-referencia
+            // Evitar auto-referencia
             if (animal.MadreId.HasValue && animal.MadreId == animal.Id)
                 ModelState.AddModelError(nameof(animal.MadreId), "No puede ser su propia madre.");
             if (animal.PadreId.HasValue && animal.PadreId == animal.Id)
@@ -94,13 +98,16 @@ namespace GanaderiaControl.Controllers
 
             try
             {
+                // Auditoría en UTC para columnas timestamptz
+                animal.CreatedAt = DateTime.UtcNow;
+                animal.UpdatedAt = DateTime.UtcNow;
+
                 _context.Add(animal);
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
             }
             catch (DbUpdateException ex) when (ex.InnerException is PostgresException pex)
             {
-                // 23505 unique_violation, 23502 not_null, 23503 foreign_key_violation
                 if (pex.SqlState == PostgresErrorCodes.UniqueViolation)
                     ModelState.AddModelError(nameof(animal.Arete), "El arete ya existe (índice único).");
                 else if (pex.SqlState == PostgresErrorCodes.NotNullViolation)
@@ -139,6 +146,9 @@ namespace GanaderiaControl.Controllers
             if (!string.IsNullOrWhiteSpace(animal.Arete))
                 animal.Arete = animal.Arete.Trim();
 
+            if (animal.FechaNacimiento != null)
+                animal.FechaNacimiento = animal.FechaNacimiento.Value.Date;
+
             if (string.IsNullOrWhiteSpace(animal.Arete))
                 ModelState.AddModelError(nameof(animal.Arete), "El arete es obligatorio.");
 
@@ -168,6 +178,7 @@ namespace GanaderiaControl.Controllers
                 entity.EstadoReproductivo = animal.EstadoReproductivo;
                 entity.MadreId = animal.MadreId;
                 entity.PadreId = animal.PadreId;
+                entity.UpdatedAt = DateTime.UtcNow; // <-- UTC para timestamptz
 
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
@@ -208,7 +219,8 @@ namespace GanaderiaControl.Controllers
             var animal = await _context.Animales.FirstOrDefaultAsync(a => a.Id == id && !a.IsDeleted);
             if (animal == null) return NotFound();
 
-            animal.IsDeleted = true; // soft delete
+            animal.IsDeleted = true;
+            animal.UpdatedAt = DateTime.UtcNow; // auditoría UTC
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
@@ -217,7 +229,7 @@ namespace GanaderiaControl.Controllers
         {
             var baseQuery = _context.Animales
                 .AsNoTracking()
-                .Where(a => !a.IsDeleted) // <--- no listar eliminados
+                .Where(a => !a.IsDeleted)
                 .OrderBy(a => a.Arete)
                 .AsQueryable();
 
