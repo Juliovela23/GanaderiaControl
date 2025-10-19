@@ -299,5 +299,42 @@ namespace GanaderiaControl.Controllers
             }
             await _context.SaveChangesAsync();
         }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> MarcarNotificada(int id, string? returnUrl)
+        {
+            var alerta = await _context.Alertas.FirstOrDefaultAsync(a => a.Id == id && !a.IsDeleted);
+            if (alerta is null) return NotFound();
+
+            if (alerta.Estado != EstadoAlerta.Atendida) // evita retroceder estado
+                alerta.Estado = EstadoAlerta.Notificada;
+
+            alerta.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+                return LocalRedirect(returnUrl);
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> MarcarAtendida(int id, string? returnUrl)
+        {
+            var alerta = await _context.Alertas.FirstOrDefaultAsync(a => a.Id == id && !a.IsDeleted);
+            if (alerta is null) return NotFound();
+
+            alerta.Estado = EstadoAlerta.Atendida;
+            alerta.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+                return LocalRedirect(returnUrl);
+
+            return RedirectToAction(nameof(Index));
+        }
+
     }
 }

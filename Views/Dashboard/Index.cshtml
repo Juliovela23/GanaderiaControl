@@ -268,11 +268,27 @@
                                             <td>@a.Notas</td>
                                             <td class="text-end">
                                                 <div class="btn-group">
-                                                    <a class="btn btn-sm btn-outline-secondary" href="@Url.Action("Details", "Alertas", new { id = a.Id })">Ver</a>
-                                                    <a class="btn btn-sm btn-outline-success" href="@Url.Action("MarcarNotificada", "Alertas", new { id = a.Id, returnUrl = Url.Action("Index", "Dashboard") })">Notificar</a>
-                                                    <a class="btn btn-sm btn-outline-primary" href="@Url.Action("MarcarAtendida", "Alertas", new { id = a.Id, returnUrl = Url.Action("Index", "Dashboard") })">Atendida</a>
+
+                                                    <a class="btn btn-sm btn-outline-secondary"
+                                                       href="@Url.Action("Details", "Alertas", new { id = a.Id })">Ver</a>
+
+                                                    <form asp-controller="Alertas" asp-action="MarcarNotificada" method="post" class="d-inline">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="id" value="@a.Id" />
+                                                        <input type="hidden" name="returnUrl" value="@Url.Action("Index", "Dashboard")" />
+                                                        <button type="submit" class="btn btn-sm btn-outline-success">Notificar</button>
+                                                    </form>
+
+                                                    <form asp-controller="Alertas" asp-action="MarcarAtendida" method="post" class="d-inline">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="id" value="@a.Id" />
+                                                        <input type="hidden" name="returnUrl" value="@Url.Action("Index", "Dashboard")" />
+                                                        <button type="submit" class="btn btn-sm btn-outline-primary">Atendida</button>
+                                                    </form>
+
                                                 </div>
                                             </td>
+
                                         </tr>
                                     }
                                 }
