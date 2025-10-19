@@ -1,56 +1,31 @@
 ﻿@model GanaderiaControl.Models.RegistroLeche
 @{
+    Layout = "_Layout";
     ViewData["Title"] = "Detalle de registro";
     var vaca = Model.Animal is null
         ? "(sin datos)"
         : (string.IsNullOrWhiteSpace(Model.Animal.Nombre) ? Model.Animal.Arete : $"{Model.Animal.Arete} - {Model.Animal.Nombre}");
 }
 
-@section Styles {
-    <style>
-        .card-fancy {
-            border-radius: 16px;
-            border: 1px solid #eaeef3;
-            box-shadow: 0 8px 22px rgba(2,32,71,.06);
-        }
-
-        .dl-box dt {
-            color: #475569;
-            font-weight: 600;
-        }
-
-        .dl-box dd {
-            color: #0f172a;
-        }
-    </style>
-}
-
-<div class="container">
-    <div class="d-flex align-items-center justify-content-between mt-3 mb-3">
-        <div>
-            <h2 class="mb-0">Detalle del registro</h2>
-            <div class="text-muted">Información completa</div>
-        </div>
-        <div class="d-flex gap-2">
-            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Editar</a>
-            <a asp-action="Index" class="btn btn-outline-secondary">Volver</a>
-        </div>
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h3 mb-0">Detalle del registro</h1>
+    <div class="d-flex gap-2">
+        <a href="@Url.Action("Edit", "RegistroLeche", new { id = Model.Id })" class="btn btn-primary">Editar</a>
+        <a href="@Url.Action("Index", "RegistroLeche")" class="btn btn-outline-secondary">Volver</a>
     </div>
+</div>
 
-    <div class="card card-fancy">
-        <div class="card-body">
-            <dl class="row dl-box">
-                <dt class="col-sm-3">Vaca</dt>
-                <dd class="col-sm-9">@vaca</dd>
+<div class="card shadow-sm">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Vaca</dt>
+            <dd class="col-sm-9">@vaca</dd>
 
-                <dt class="col-sm-3">Fecha</dt>
-                <dd class="col-sm-9">@Model.Fecha.ToString("dd/MM/yyyy")</dd>
+            <dt class="col-sm-3">Fecha</dt>
+            <dd class="col-sm-9">@Model.Fecha.ToString("yyyy-MM-dd")</dd>
 
-                <dt class="col-sm-3">Litros del día</dt>
-                <dd class="col-sm-9">
-                    <span class="fw-bold">@Model.LitrosDia.ToString("0.##")</span> L
-                </dd>
-            </dl>
-        </div>
+            <dt class="col-sm-3">Litros del día</dt>
+            <dd class="col-sm-9"><span class="fw-bold">@Model.LitrosDia.ToString("0.##")</span> L</dd>
+        </dl>
     </div>
 </div>
