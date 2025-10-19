@@ -27,4 +27,5 @@ public class Animal : AuditableEntity
     public ICollection<RegistroLeche> RegistrosLeche { get; set; } = new List<RegistroLeche>();
     public ICollection<EventoSalud> EventosSalud { get; set; } = new List<EventoSalud>();
     public ICollection<Alerta> Alertas { get; set; } = new List<Alerta>();
+    public string? userId { get; set; }
 }

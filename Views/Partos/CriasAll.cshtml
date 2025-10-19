@@ -1,0 +1,66 @@
+﻿@model IEnumerable<GanaderiaControl.Models.Cria>
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Crías";
+    var q = (string)ViewBag.Q ?? "";
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h3 mb-0">Crías</h1>
+    <a href="@Url.Action("Create", "Partos")" class="btn btn-outline-primary">Registrar parto</a>
+</div>
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-auto">
+        <input name="q" value="@q" class="form-control" placeholder="Buscar por arete cría / madre / estado / notas..." />
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-outline-secondary" type="submit">Buscar</button>
+    </div>
+</form>
+
+@if (TempData["Ok"] != null)
+{
+    <div class="alert alert-success">@TempData["Ok"]</div>
+}
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha parto</th>
+                        <th>Madre</th>
+                        <th>Sexo</th>
+                        <th>Peso (kg)</th>
+                        <th>Arete cría</th>
+                        <th>Estado</th>
+                        <th>Obs.</th>
+                        <th style="width:210px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in Model)
+                    {
+                        <tr>
+                            <td>@c.Parto?.FechaParto.ToString("yyyy-MM-dd")</td>
+                            <td>@c.Parto?.Madre?.Arete @(string.IsNullOrWhiteSpace(c.Parto?.Madre?.Nombre) ? "" : " - " + c.Parto!.Madre!.Nombre)</td>
+                            <td>@c.Sexo</td>
+                            <td>@(c.PesoNacimientoKg?.ToString("0.0") ?? "-")</td>
+                            <td>@c.AreteAsignado</td>
+                            <td>@c.Estado</td>
+                            <td>@c.Observaciones</td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-secondary" href="@Url.Action("CriaDetails", "Partos", new { id = c.Id })">Ver</a>
+                                <a class="btn btn-sm btn-outline-primary" href="@Url.Action("CriaEdit", "Partos", new { id = c.Id })">Editar</a>
+                                <a class="btn btn-sm btn-outline-danger" href="@Url.Action("CriaDelete", "Partos", new { id = c.Id })">Eliminar</a>
+                                <a class="btn btn-sm btn-outline-success" href="@Url.Action("Crias", "Partos", new { partoId = c.PartoId })">Ir al parto</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

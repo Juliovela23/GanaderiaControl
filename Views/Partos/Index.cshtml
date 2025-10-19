@@ -1,0 +1,65 @@
+﻿@model IEnumerable<GanaderiaControl.Models.Parto>
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Partos";
+    var q = (string)ViewBag.Q ?? "";
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h3 mb-0">Partos</h1>
+    <div>
+        <a href="@Url.Action("Create", "Partos")" class="btn btn-primary">Nuevo parto</a>
+    </div>
+</div>
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-auto">
+        <input name="q" value="@q" class="form-control" placeholder="Buscar por madre / notas..." />
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-outline-secondary" type="submit">Buscar</button>
+    </div>
+</form>
+
+@if (TempData["Ok"] != null)
+{
+    <div class="alert alert-success">@TempData["Ok"]</div>
+}
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Madre</th>
+                        <th>Tipo</th>
+                        <th>Ret. Placenta</th>
+                        <th>Observaciones</th>
+                        <th style="width:140px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in Model)
+                    {
+                        <tr>
+                            <td>@p.FechaParto.ToString("yyyy-MM-dd")</td>
+                            <td>@p.Madre?.Arete @(string.IsNullOrWhiteSpace(p.Madre?.Nombre) ? "" : " - " + p.Madre!.Nombre)</td>
+                            <td>@p.TipoParto</td>
+                            <td>@(p.RetencionPlacenta ? "Sí" : "No")</td>
+                            <td>@p.Observaciones</td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-secondary" href="@Url.Action("Details", "Partos", new { id = p.Id })">Ver</a>
+                                <a class="btn btn-sm btn-outline-primary" href="@Url.Action("Edit", "Partos", new { id = p.Id })">Editar</a>
+                                <a class="btn btn-sm btn-outline-danger" href="@Url.Action("Delete", "Partos", new { id = p.Id })">Eliminar</a>
+                                <a class="btn btn-sm btn-outline-success" href="@Url.Action("Crias", "Partos", new { partoId = p.Id })">Crías</a> <!-- NEW -->
+                            </td>
+
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

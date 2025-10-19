@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using GanaderiaControl.Data;
 using GanaderiaControl.Models;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -14,7 +15,13 @@ namespace GanaderiaControl.Controllers
     public class ServiciosController : Controller
     {
         private readonly ApplicationDbContext _context;
-        public ServiciosController(ApplicationDbContext context) => _context = context;
+        private readonly UserManager<IdentityUser> _userManager;
+
+        public ServiciosController(ApplicationDbContext context, UserManager<IdentityUser> userManager)
+        {
+            _context = context;
+            _userManager = userManager;
+        }
 
         // LISTADO
         public async Task<IActionResult> Index(string? q)
@@ -215,12 +222,28 @@ namespace GanaderiaControl.Controllers
         private async Task CrearAlertasDerivadasAsync(ServicioReproductivo s)
         {
             var baseDate = s.FechaServicio.Date;
+            var currentUserId = _userManager.GetUserId(User); // usuario actual será el destinatario de las alertas
 
             var alertas = new List<Alerta>
             {
-                new Alerta{ AnimalId=s.AnimalId, Tipo=TipoAlerta.ChequeoGestacion, Estado=EstadoAlerta.Pendiente, FechaObjetivo=baseDate.AddDays(32), Disparador=$"Servicio #{s.Id} del {baseDate:yyyy-MM-dd}", Notas="Chequeo gestación (~32d)", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow },
-                new Alerta{ AnimalId=s.AnimalId, Tipo=TipoAlerta.Secado,            Estado=EstadoAlerta.Pendiente, FechaObjetivo=baseDate.AddDays(210),Disparador=$"Servicio #{s.Id} del {baseDate:yyyy-MM-dd}", Notas="Secado estimado (~210d)", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow },
-                new Alerta{ AnimalId=s.AnimalId, Tipo=TipoAlerta.PartoProbable,    Estado=EstadoAlerta.Pendiente, FechaObjetivo=baseDate.AddDays(283),Disparador=$"Servicio #{s.Id} del {baseDate:yyyy-MM-dd}", Notas="Parto probable (~283d)", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow }
+                new Alerta{
+                    AnimalId=s.AnimalId, Tipo=TipoAlerta.ChequeoGestacion, Estado=EstadoAlerta.Pendiente,
+                    FechaObjetivo=baseDate.AddDays(32), Disparador=$"Servicio #{s.Id} del {baseDate:yyyy-MM-dd}",
+                    Notas="Chequeo gestación (~32d)", DestinatarioUserId = currentUserId,
+                    CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
+                },
+                new Alerta{
+                    AnimalId=s.AnimalId, Tipo=TipoAlerta.Secado, Estado=EstadoAlerta.Pendiente,
+                    FechaObjetivo=baseDate.AddDays(210), Disparador=$"Servicio #{s.Id} del {baseDate:yyyy-MM-dd}",
+                    Notas="Secado estimado (~210d)", DestinatarioUserId = currentUserId,
+                    CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
+                },
+                new Alerta{
+                    AnimalId=s.AnimalId, Tipo=TipoAlerta.PartoProbable, Estado=EstadoAlerta.Pendiente,
+                    FechaObjetivo=baseDate.AddDays(283), Disparador=$"Servicio #{s.Id} del {baseDate:yyyy-MM-dd}",
+                    Notas="Parto probable (~283d)", DestinatarioUserId = currentUserId,
+                    CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
+                }
             };
 
             foreach (var a in alertas)

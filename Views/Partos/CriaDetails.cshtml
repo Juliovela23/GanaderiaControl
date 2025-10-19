@@ -1,0 +1,34 @@
+﻿@model GanaderiaControl.Models.Cria
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Detalle de Cría";
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h4 mb-0">Detalle de cría</h1>
+    <a href="@Url.Action("Crias", "Partos", new { partoId = Model.PartoId })" class="btn btn-outline-secondary">Volver</a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-3">Parto</dt>
+            <dd class="col-sm-9">#@Model.PartoId (@Model.Parto?.Madre?.Arete)</dd>
+
+            <dt class="col-sm-3">Sexo</dt>
+            <dd class="col-sm-9">@Model.Sexo</dd>
+
+            <dt class="col-sm-3">Peso nacimiento</dt>
+            <dd class="col-sm-9">@((Model.PesoNacimientoKg?.ToString("0.0") ?? "-")) kg</dd>
+
+            <dt class="col-sm-3">Arete</dt>
+            <dd class="col-sm-9">@Model.AreteAsignado</dd>
+
+            <dt class="col-sm-3">Estado</dt>
+            <dd class="col-sm-9">@Model.Estado</dd>
+
+            <dt class="col-sm-3">Observaciones</dt>
+            <dd class="col-sm-9">@Model.Observaciones</dd>
+        </dl>
+    </div>
+</div>

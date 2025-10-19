@@ -1,0 +1,62 @@
+﻿@model GanaderiaControl.Models.Cria
+@using GanaderiaControl.Models
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Editar Cría";
+    var parto = ViewBag.Parto as Parto;
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+        <h1 class="h4 mb-1">Editar cría</h1>
+        <div class="text-muted">Parto #@parto?.Id • Madre: @parto?.Madre?.Arete @(string.IsNullOrWhiteSpace(parto?.Madre?.Nombre) ? "" : " - " + parto!.Madre!.Nombre)</div>
+    </div>
+    <a href="@Url.Action("Crias", "Partos", new { partoId = Model.PartoId })" class="btn btn-outline-secondary">Volver</a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        @using (Html.BeginForm("CriaEdit", "Partos", FormMethod.Post, new { @class = "row g-3" }))
+        {
+            @Html.AntiForgeryToken()
+            @Html.HiddenFor(m => m.Id)
+            @Html.HiddenFor(m => m.PartoId)
+            @Html.ValidationSummary(false, "", new { @class = "text-danger" })
+
+            <div class="col-md-3">
+                @Html.LabelFor(m => m.Sexo, new { @class = "form-label" })
+                @Html.DropDownListFor(m => m.Sexo, Html.GetEnumSelectList<SexoCria>(), "-- Seleccione --", new { @class = "form-select" })
+                @Html.ValidationMessageFor(m => m.Sexo, "", new { @class = "text-danger" })
+            </div>
+
+            <div class="col-md-3">
+                @Html.LabelFor(m => m.PesoNacimientoKg, new { @class = "form-label" })
+                @Html.TextBoxFor(m => m.PesoNacimientoKg, new { @class = "form-control", type = "number", step = "0.1", min = "0" })
+            </div>
+
+            <div class="col-md-6">
+                @Html.LabelFor(m => m.AreteAsignado, new { @class = "form-label" })
+                @Html.TextBoxFor(m => m.AreteAsignado, new { @class = "form-control" })
+            </div>
+
+            <div class="col-md-6">
+                @Html.LabelFor(m => m.Estado, new { @class = "form-label" })
+                @Html.TextBoxFor(m => m.Estado, new { @class = "form-control" })
+            </div>
+
+            <div class="col-12">
+                @Html.LabelFor(m => m.Observaciones, new { @class = "form-label" })
+                @Html.TextAreaFor(m => m.Observaciones, 3, 80, new { @class = "form-control" })
+            </div>
+
+            <div class="col-12">
+                <button class="btn btn-primary" type="submit">Guardar</button>
+                <a class="btn btn-secondary" href="@Url.Action("Crias", "Partos", new { partoId = Model.PartoId })">Cancelar</a>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+}

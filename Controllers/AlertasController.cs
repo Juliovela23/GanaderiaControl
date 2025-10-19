@@ -1,15 +1,16 @@
-using System;
-using System.Linq;
-using System.Threading.Tasks;
 using GanaderiaControl.Data;
 using GanaderiaControl.Models;
 using GanaderiaControl.Services.Alerts;
 using GanaderiaControl.Services.Email;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace GanaderiaControl.Controllers
 {
@@ -226,8 +227,9 @@ namespace GanaderiaControl.Controllers
         }
 
         // ====== ENDPOINT DE PRUEBA DE CORREO (opcional) ======
-        // Envía un correo de prueba al destinatario Identity de esta alerta.
+        // TIP: Déjalo [AllowAnonymous] sólo en DEV para que Postman no requiera cookie de Identity.
         [HttpPost]
+        [AllowAnonymous]
         public async Task<IActionResult> ProbarCorreo(
             int id,
             [FromServices] IAlertRecipientResolver resolver,

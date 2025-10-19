@@ -12,4 +12,6 @@ public class Cria : AuditableEntity
     [MaxLength(50)]  public string? AreteAsignado { get; set; }
     [MaxLength(120)] public string? Estado { get; set; } // vivo, muerto al nacer...
     [MaxLength(240)] public string? Observaciones { get; set; }
+
+    public string? userId { get; set; }
 }

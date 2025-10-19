@@ -51,10 +51,8 @@ public class AlertEmailScheduler : BackgroundService
 
     private TimeSpan GetDelayUntilNextRun()
     {
-        var now = GetNowGuatemala();
-        var next = now.Date + _runAtLocal;
-        if (now > next) next = next.AddDays(1);
-        return next - now;
+        
+        return TimeSpan.FromMinutes(1);
     }
 
     private async Task RunOnceAsync(CancellationToken ct)

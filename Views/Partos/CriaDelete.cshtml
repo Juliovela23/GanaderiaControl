@@ -1,0 +1,32 @@
+﻿@model GanaderiaControl.Models.Cria
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Eliminar Cría";
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h4 mb-0">Eliminar cría</h1>
+    <a href="@Url.Action("Crias", "Partos", new { partoId = Model.PartoId })" class="btn btn-outline-secondary">Volver</a>
+</div>
+
+<div class="alert alert-warning">
+    <strong>¿Confirma eliminar?</strong> Esta acción marcará el registro como eliminado.
+</div>
+
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <p><b>Parto:</b> #@Model.PartoId</p>
+        <p><b>Sexo:</b> @Model.Sexo</p>
+        <p><b>Peso:</b> @((Model.PesoNacimientoKg?.ToString("0.0") ?? "-")) kg</p>
+        <p><b>Arete:</b> @Model.AreteAsignado</p>
+        <p><b>Estado:</b> @Model.Estado</p>
+    </div>
+</div>
+
+@using (Html.BeginForm("CriaDelete", "Partos", FormMethod.Post))
+{
+    @Html.AntiForgeryToken()
+    @Html.HiddenFor(m => m.Id)
+    <button class="btn btn-danger" type="submit">Eliminar</button>
+    <a class="btn btn-secondary" href="@Url.Action("Crias", "Partos", new { partoId = Model.PartoId })">Cancelar</a>
+}

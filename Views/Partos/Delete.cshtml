@@ -1,0 +1,31 @@
+﻿@model GanaderiaControl.Models.Parto
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Eliminar Parto";
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h3 mb-0">Eliminar parto</h1>
+    <a href="@Url.Action("Index", "Partos")" class="btn btn-outline-secondary">Volver</a>
+</div>
+
+<div class="alert alert-warning">
+    <strong>¿Confirma eliminar?</strong> Esta acción marcará el registro como eliminado.
+</div>
+
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <p><b>Fecha:</b> @Model.FechaParto.ToString("yyyy-MM-dd")</p>
+        <p><b>Madre:</b> @Model.Madre?.Arete @(string.IsNullOrWhiteSpace(Model.Madre?.Nombre) ? "" : " - " + Model.Madre!.Nombre)</p>
+        <p><b>Tipo:</b> @Model.TipoParto</p>
+        <p><b>Observaciones:</b> @Model.Observaciones</p>
+    </div>
+</div>
+
+@using (Html.BeginForm("Delete", "Partos", FormMethod.Post))
+{
+    @Html.AntiForgeryToken()
+    @Html.HiddenFor(m => m.Id)
+    <button type="submit" class="btn btn-danger">Eliminar</button>
+    <a href="@Url.Action("Index", "Partos")" class="btn btn-secondary">Cancelar</a>
+}

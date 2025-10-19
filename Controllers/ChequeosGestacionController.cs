@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using GanaderiaControl.Data;
 using GanaderiaControl.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +16,13 @@ namespace GanaderiaControl.Controllers
     public class ChequeosGestacionController : Controller
     {
         private readonly ApplicationDbContext _db;
-        public ChequeosGestacionController(ApplicationDbContext db) { _db = db; }
+        private readonly UserManager<IdentityUser> _userManager;
+
+        public ChequeosGestacionController(ApplicationDbContext db, UserManager<IdentityUser> userManager)
+        {
+            _db = db;
+            _userManager = userManager;
+        }
 
         public async Task<IActionResult> Index(string? q)
         {
@@ -234,6 +241,7 @@ namespace GanaderiaControl.Controllers
 
             if (!existe)
             {
+                var currentUserId = _userManager.GetUserId(User); // usuario actual como destinatario
                 _db.Alertas.Add(new Alerta
                 {
                     AnimalId = animalId,
@@ -241,6 +249,7 @@ namespace GanaderiaControl.Controllers
                     FechaObjetivo = fechaObjetivo.Date,
                     Estado = EstadoAlerta.Pendiente,
                     Notas = nota,
+                    DestinatarioUserId = currentUserId,
                     CreatedAt = DateTime.UtcNow, // UTC
                     UpdatedAt = DateTime.UtcNow
                 });

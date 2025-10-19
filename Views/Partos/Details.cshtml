@@ -1,0 +1,47 @@
+﻿@model GanaderiaControl.Models.Parto
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Detalle de Parto";
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h3 mb-0">Detalle de parto</h1>
+    <div>
+        <a href="@Url.Action("Edit", "Partos", new { id = Model.Id })" class="btn btn-primary">Editar</a>
+        <a href="@Url.Action("Index", "Partos")" class="btn btn-outline-secondary">Volver</a>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-3">Fecha</dt>
+            <dd class="col-sm-9">@Model.FechaParto.ToString("yyyy-MM-dd")</dd>
+
+            <dt class="col-sm-3">Madre</dt>
+            <dd class="col-sm-9">@Model.Madre?.Arete @(string.IsNullOrWhiteSpace(Model.Madre?.Nombre) ? "" : " - " + Model.Madre!.Nombre)</dd>
+
+            <dt class="col-sm-3">Tipo de parto</dt>
+            <dd class="col-sm-9">@Model.TipoParto</dd>
+
+            <dt class="col-sm-3">Retención de placenta</dt>
+            <dd class="col-sm-9">@(Model.RetencionPlacenta ? "Sí" : "No")</dd>
+
+            @if (!string.IsNullOrWhiteSpace(Model.Asistencia))
+            {
+                <dt class="col-sm-3">Asistencia</dt>
+                <dd class="col-sm-9">@Model.Asistencia</dd>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.Complicaciones))
+            {
+                <dt class="col-sm-3">Complicaciones</dt>
+                <dd class="col-sm-9">@Model.Complicaciones</dd>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.Observaciones))
+            {
+                <dt class="col-sm-3">Observaciones</dt>
+                <dd class="col-sm-9">@Model.Observaciones</dd>
+            }
+        </dl>
+    </div>
+</div>

@@ -1,0 +1,140 @@
+﻿@model GanaderiaControl.Models.ViewModels.PartoCreateVM
+@using Microsoft.AspNetCore.Mvc.Rendering
+@using GanaderiaControl.Models
+
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Nuevo Parto + Cría";
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h3 mb-0">Nuevo parto</h1>
+    <a href="@Url.Action("Index", "Partos")" class="btn btn-outline-secondary">Volver</a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        @using (Html.BeginForm("Create", "Partos", FormMethod.Post, new { @class = "row g-3" }))
+        {
+            @Html.AntiForgeryToken()
+            @Html.ValidationSummary(false, "", new { @class = "text-danger" })
+
+            <!-- ===== Datos del Parto ===== -->
+            <div class="col-12"><h6 class="text-uppercase text-muted">Datos del parto</h6><hr /></div>
+
+            <div class="col-md-4">
+                @Html.LabelFor(m => m.MadreId, new { @class = "form-label" })
+                @{
+                    var lista = (IEnumerable<SelectListItem>)ViewBag.MadreId ?? Enumerable.Empty<SelectListItem>();
+                    var opciones = new List<SelectListItem> { new SelectListItem { Value = "0", Text = "-- Seleccione --" } };
+                    opciones.AddRange(lista);
+                }
+                @Html.DropDownListFor(m => m.MadreId, opciones, new { @class = "form-select" })
+                @Html.ValidationMessageFor(m => m.MadreId, "", new { @class = "text-danger" })
+            </div>
+
+            <div class="col-md-4">
+                @Html.LabelFor(m => m.FechaParto, new { @class = "form-label" })
+                @Html.TextBoxFor(m => m.FechaParto, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date" })
+                @Html.ValidationMessageFor(m => m.FechaParto, "", new { @class = "text-danger" })
+            </div>
+
+            <div class="col-md-4">
+                @Html.LabelFor(m => m.TipoParto, new { @class = "form-label" })
+                @Html.DropDownListFor(m => m.TipoParto, Html.GetEnumSelectList<TipoParto>(), "-- Seleccione --", new { @class = "form-select" })
+                @Html.ValidationMessageFor(m => m.TipoParto, "", new { @class = "text-danger" })
+            </div>
+
+            <div class="col-md-4">
+                <div class="form-check mt-4">
+                    @Html.CheckBoxFor(m => m.RetencionPlacenta, new { @class = "form-check-input", id = "chkRet" })
+                    <label for="chkRet" class="form-check-label">Retención de placenta</label>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                @Html.LabelFor(m => m.Asistencia, new { @class = "form-label" })
+                @Html.TextBoxFor(m => m.Asistencia, new { @class = "form-control", placeholder = "Quién asistió, tipo de asistencia..." })
+            </div>
+
+            <div class="col-12">
+                @Html.LabelFor(m => m.Complicaciones, new { @class = "form-label" })
+                @Html.TextBoxFor(m => m.Complicaciones, new { @class = "form-control", placeholder = "Complicaciones (si hubo)" })
+            </div>
+
+            <div class="col-12">
+                @Html.LabelFor(m => m.Observaciones, new { @class = "form-label" })
+                @Html.TextAreaFor(m => m.Observaciones, 3, 80, new { @class = "form-control", placeholder = "Notas adicionales" })
+            </div>
+
+            <!-- ===== Datos de la Cría (opcional) ===== -->
+            <div class="col-12 mt-3">
+                <div class="form-check">
+                    @Html.CheckBoxFor(m => m.CrearCria, new { @class = "form-check-input", id = "chkCrearCria" })
+                    <label class="form-check-label" for="chkCrearCria"><strong>Registrar cría</strong></label>
+                </div>
+            </div>
+
+            <div id="criaFields" class="row g-3">
+                <div class="col-md-3">
+                    @Html.LabelFor(m => m.CriaSexo, new { @class = "form-label" })
+                    @Html.DropDownListFor(m => m.CriaSexo, Html.GetEnumSelectList<SexoCria>(), "-- Seleccione --", new { @class = "form-select" })
+                    @Html.ValidationMessageFor(m => m.CriaSexo, "", new { @class = "text-danger" })
+                </div>
+
+                <div class="col-md-3">
+                    @Html.LabelFor(m => m.CriaPesoNacimientoKg, new { @class = "form-label" })
+                    @Html.TextBoxFor(m => m.CriaPesoNacimientoKg, new { @class = "form-control", type = "number", step = "0.1", min = "0" })
+                </div>
+
+                <div class="col-md-6">
+                    @Html.LabelFor(m => m.CriaEstado, new { @class = "form-label" })
+                    @Html.TextBoxFor(m => m.CriaEstado, new { @class = "form-control", placeholder = "vivo, muerto al nacer..." })
+                </div>
+
+                <div class="col-12">
+                    @Html.LabelFor(m => m.CriaObservaciones, new { @class = "form-label" })
+                    @Html.TextAreaFor(m => m.CriaObservaciones, 2, 80, new { @class = "form-control" })
+                </div>
+
+                <div class="col-12 mt-2">
+                    <div class="form-check">
+                        @Html.CheckBoxFor(m => m.RegistrarCriaComoAnimal, new { @class = "form-check-input", id = "chkCriaAnimal" })
+                        <label class="form-check-label" for="chkCriaAnimal"><strong>Registrar cría como Animal</strong></label>
+                    </div>
+                </div>
+
+                <div class="col-md-6" id="areteCriaGroup">
+                    @Html.LabelFor(m => m.CriaAreteAsignado, new { @class = "form-label" })
+                    @Html.TextBoxFor(m => m.CriaAreteAsignado, new { @class = "form-control", placeholder = "Arete único para el nuevo animal" })
+                    @Html.ValidationMessageFor(m => m.CriaAreteAsignado, "", new { @class = "text-danger" })
+                </div>
+            </div>
+
+            <div class="col-12 mt-3">
+                <button type="submit" class="btn btn-primary">Guardar</button>
+                <a href="@Url.Action("Index", "Partos")" class="btn btn-secondary">Cancelar</a>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function(){
+            function toggleCriaFields() {
+                const crear = document.getElementById('chkCrearCria').checked;
+                document.getElementById('criaFields').style.display = crear ? '' : 'none';
+            }
+            function toggleArete() {
+                const reg = document.getElementById('chkCriaAnimal').checked;
+                document.getElementById('areteCriaGroup').style.display = reg ? '' : 'none';
+            }
+            const crt = document.getElementById('chkCrearCria');
+            const cra = document.getElementById('chkCriaAnimal');
+            if (crt) { crt.addEventListener('change', toggleCriaFields); toggleCriaFields(); }
+            if (cra) { cra.addEventListener('change', toggleArete); toggleArete(); }
+        })();
+    </script>
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+}

@@ -1,0 +1,78 @@
+﻿@model GanaderiaControl.Models.Parto
+@using Microsoft.AspNetCore.Mvc.Rendering
+@using GanaderiaControl.Models
+
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Editar Parto";
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h3 mb-0">Editar parto</h1>
+    <a href="@Url.Action("Index", "Partos")" class="btn btn-outline-secondary">Volver</a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        @using (Html.BeginForm("Edit", "Partos", FormMethod.Post, new { @class = "row g-3" }))
+        {
+            @Html.AntiForgeryToken()
+            @Html.HiddenFor(m => m.Id)
+            @Html.ValidationSummary(false, "", new { @class = "text-danger" })
+
+            <div class="col-md-4">
+                @Html.LabelFor(m => m.MadreId, new { @class = "form-label" })
+                @{
+                    var lista = (IEnumerable<SelectListItem>)ViewBag.MadreId ?? Enumerable.Empty<SelectListItem>();
+                    var opciones = new List<SelectListItem> { new SelectListItem { Value = "0", Text = "-- Seleccione --" } };
+                    opciones.AddRange(lista);
+                }
+                @Html.DropDownListFor(m => m.MadreId, opciones, new { @class = "form-select" })
+                @Html.ValidationMessageFor(m => m.MadreId, "", new { @class = "text-danger" })
+            </div>
+
+            <div class="col-md-4">
+                @Html.LabelFor(m => m.FechaParto, new { @class = "form-label" })
+                @Html.TextBoxFor(m => m.FechaParto, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date" })
+                @Html.ValidationMessageFor(m => m.FechaParto, "", new { @class = "text-danger" })
+            </div>
+
+            <div class="col-md-4">
+                @Html.LabelFor(m => m.TipoParto, new { @class = "form-label" })
+                @Html.DropDownListFor(m => m.TipoParto, Html.GetEnumSelectList<TipoParto>(), "-- Seleccione --", new { @class = "form-select" })
+                @Html.ValidationMessageFor(m => m.TipoParto, "", new { @class = "text-danger" })
+            </div>
+
+            <div class="col-md-4">
+                <div class="form-check mt-4">
+                    @Html.CheckBoxFor(m => m.RetencionPlacenta, new { @class = "form-check-input", id = "chkRet" })
+                    <label for="chkRet" class="form-check-label">Retención de placenta</label>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                @Html.LabelFor(m => m.Asistencia, new { @class = "form-label" })
+                @Html.TextBoxFor(m => m.Asistencia, new { @class = "form-control" })
+            </div>
+
+            <div class="col-12">
+                @Html.LabelFor(m => m.Complicaciones, new { @class = "form-label" })
+                @Html.TextBoxFor(m => m.Complicaciones, new { @class = "form-control" })
+            </div>
+
+            <div class="col-12">
+                @Html.LabelFor(m => m.Observaciones, new { @class = "form-label" })
+                @Html.TextAreaFor(m => m.Observaciones, 3, 80, new { @class = "form-control" })
+            </div>
+
+            <div class="col-12 mt-2">
+                <button type="submit" class="btn btn-primary">Guardar</button>
+                <a href="@Url.Action("Index", "Partos")" class="btn btn-secondary">Cancelar</a>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+}
