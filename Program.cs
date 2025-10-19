@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ---- Puerto (Render) ----
+// ---- Puerto (Render/Containers) ----
 var port = Environment.GetEnvironmentVariable("PORT");
 if (!string.IsNullOrWhiteSpace(port))
 {
@@ -36,7 +36,7 @@ builder.Services
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
-// Protege todo MVC por defecto
+// Autorización global: todo MVC protegido
 builder.Services.AddControllersWithViews(opt =>
 {
     var policy = new AuthorizationPolicyBuilder()
@@ -51,6 +51,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AllowAnonymousToAreaFolder("Identity", "/Account");
 });
 
+// Cookies
 builder.Services.ConfigureApplicationCookie(opt =>
 {
     opt.LoginPath = "/Identity/Account/Login";
@@ -59,10 +60,13 @@ builder.Services.ConfigureApplicationCookie(opt =>
     opt.ExpireTimeSpan = TimeSpan.FromHours(8);
 });
 
-// Proxy/CDN
+// Proxy/CDN (Render/NGINX/Cloudflare)
 builder.Services.Configure<ForwardedHeadersOptions>(opt =>
 {
     opt.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    // Confía en proxies desconocidos si estás en PaaS tipo Render/Heroku
+    opt.KnownNetworks.Clear();
+    opt.KnownProxies.Clear();
 });
 
 var app = builder.Build();
@@ -71,12 +75,16 @@ app.UseForwardedHeaders();
 
 if (app.Environment.IsDevelopment())
 {
-    app.UseMigrationsEndPoint();
+    app.UseMigrationsEndPoint(); // detalle de errores solo en dev
 }
 else
 {
-    app.UseExceptionHandler("/Error");
+    // IMPORTANTE: Apunta a un endpoint real que exista
+    app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
+
+    // Páginas de estado (404/403/500…) que re-ejecutan una ruta visible
+    app.UseStatusCodePagesWithReExecute("/Home/StatusCode", "?code={0}");
 }
 
 app.UseHttpsRedirection();
@@ -93,12 +101,13 @@ app.MapGet("/health", () => Results.Ok("OK"));
 // Migraciones + Seed
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    var sp = scope.ServiceProvider;
+    var db = sp.GetRequiredService<ApplicationDbContext>();
     db.Database.Migrate();
-    await SeedIdentityAsync(scope.ServiceProvider);
+    await SeedIdentityAsync(sp);
 }
 
-// 🔁 Redirige la raíz siempre al Dashboard (evita que /Pages/Index.cshtml capture "/")
+// Redirige raíz al Dashboard
 app.MapGet("/", () => Results.Redirect("/Dashboard"));
 
 // Rutas MVC + Razor Pages

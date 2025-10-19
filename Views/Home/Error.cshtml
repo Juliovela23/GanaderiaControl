@@ -1,0 +1,26 @@
+﻿@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Error del sistema";
+}
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h1 class="display-6 mb-2">¡Ups! Ocurrió un error</h1>
+                    <p class="text-muted mb-4">
+                        Hubo un problema procesando tu solicitud. Nuestro equipo ya fue notificado (si hay logging habilitado).
+                    </p>
+                    <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+                        <a href="/" class="btn btn-primary">Volver al inicio</a>
+                        <a href="javascript:history.back()" class="btn btn-outline-secondary">Regresar</a>
+                    </div>
+                    <div class="text-muted mt-4" style="font-size: .9rem;">
+                        Si el problema persiste, contacta al administrador.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
