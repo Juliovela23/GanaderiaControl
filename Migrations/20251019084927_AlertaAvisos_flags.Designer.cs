@@ -3,6 +3,7 @@ using System;
 using GanaderiaControl.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GanaderiaControl.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251019084927_AlertaAvisos_flags")]
+    partial class AlertaAvisos_flags
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -59,10 +62,6 @@ namespace GanaderiaControl.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("text");
 
-                    b.Property<string>("DestinatarioUserId")
-                        .HasMaxLength(450)
-                        .HasColumnType("character varying(450)");
-
                     b.Property<string>("Disparador")
                         .HasMaxLength(240)
                         .HasColumnType("character varying(240)");
@@ -92,8 +91,6 @@ namespace GanaderiaControl.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("DestinatarioUserId");
 
                     b.HasIndex("AnimalId", "Tipo", "FechaObjetivo");
 
@@ -785,13 +782,7 @@ namespace GanaderiaControl.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "DestinatarioUser")
-                        .WithMany()
-                        .HasForeignKey("DestinatarioUserId");
-
                     b.Navigation("Animal");
-
-                    b.Navigation("DestinatarioUser");
                 });
 
             modelBuilder.Entity("GanaderiaControl.Models.Animal", b =>

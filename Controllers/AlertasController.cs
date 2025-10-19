@@ -3,6 +3,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using GanaderiaControl.Data;
 using GanaderiaControl.Models;
+using GanaderiaControl.Services.Alerts;
+using GanaderiaControl.Services.Email;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -13,7 +16,13 @@ namespace GanaderiaControl.Controllers
     public class AlertasController : Controller
     {
         private readonly ApplicationDbContext _context;
-        public AlertasController(ApplicationDbContext context) => _context = context;
+        private readonly UserManager<IdentityUser> _userManager;
+
+        public AlertasController(ApplicationDbContext context, UserManager<IdentityUser> userManager)
+        {
+            _context = context;
+            _userManager = userManager;
+        }
 
         // LISTADO
         public async Task<IActionResult> Index(string? q, EstadoAlerta? estado, DateTime? desde, DateTime? hasta, bool proximos = true)
@@ -92,8 +101,11 @@ namespace GanaderiaControl.Controllers
         // CREATE POST
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("AnimalId,Tipo,FechaObjetivo,Estado,Disparador,Notas")] Alerta alerta)
+        public async Task<IActionResult> Create([Bind("AnimalId,Tipo,FechaObjetivo,Estado,Disparador,Notas,DestinatarioUserId")] Alerta alerta)
         {
+            // Si no se especifica, usa el usuario actual como destinatario de la alerta
+            alerta.DestinatarioUserId ??= _userManager.GetUserId(User);
+
             var animalOk = await _context.Animales.AnyAsync(a => a.Id == alerta.AnimalId && !a.IsDeleted);
             if (!animalOk)
                 ModelState.AddModelError(nameof(alerta.AnimalId), "Animal inválido.");
@@ -140,7 +152,7 @@ namespace GanaderiaControl.Controllers
         // EDIT POST
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,AnimalId,Tipo,FechaObjetivo,Estado,Disparador,Notas")] Alerta alerta)
+        public async Task<IActionResult> Edit(int id, [Bind("Id,AnimalId,Tipo,FechaObjetivo,Estado,Disparador,Notas,DestinatarioUserId")] Alerta alerta)
         {
             if (id != alerta.Id) return NotFound();
 
@@ -170,6 +182,7 @@ namespace GanaderiaControl.Controllers
                 entity.Estado = alerta.Estado;
                 entity.Disparador = alerta.Disparador;
                 entity.Notas = alerta.Notas;
+                entity.DestinatarioUserId = alerta.DestinatarioUserId ?? entity.DestinatarioUserId;
                 entity.UpdatedAt = DateTime.UtcNow; // UTC
 
                 await _context.SaveChangesAsync();
@@ -210,6 +223,31 @@ namespace GanaderiaControl.Controllers
             alerta.UpdatedAt = DateTime.UtcNow; // UTC
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
+        }
+
+        // ====== ENDPOINT DE PRUEBA DE CORREO (opcional) ======
+        // Envía un correo de prueba al destinatario Identity de esta alerta.
+        [HttpPost]
+        public async Task<IActionResult> ProbarCorreo(
+            int id,
+            [FromServices] IAlertRecipientResolver resolver,
+            [FromServices] IEmailSender sender)
+        {
+            var alerta = await _context.Alertas
+                .Include(a => a.Animal)
+                .FirstOrDefaultAsync(a => a.Id == id && !a.IsDeleted);
+
+            if (alerta is null) return NotFound();
+
+            var to = await resolver.GetEmailAsync(alerta);
+            if (string.IsNullOrWhiteSpace(to))
+                return BadRequest("La alerta no tiene destinatario con email en Identity.");
+
+            var subject = $"[TEST] Alerta {alerta.Tipo} – {(alerta.Animal?.Arete ?? $"Animal {alerta.AnimalId}")}";
+            var body = $"<p>Prueba de correo para la alerta #{alerta.Id}.</p><p>Fecha objetivo: {alerta.FechaObjetivo:yyyy-MM-dd}</p>";
+
+            await sender.SendAsync(to, subject, body);
+            return Ok(new { ok = true, sentTo = to });
         }
 
         // HELPERS

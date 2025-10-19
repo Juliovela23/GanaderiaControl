@@ -1,11 +1,12 @@
-﻿using System;
-using System.Linq;
-using System.Threading.Tasks;
-using GanaderiaControl.Data;
+﻿using GanaderiaControl.Data;
 using GanaderiaControl.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Globalization;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace GanaderiaControl.Controllers
 {
@@ -18,10 +19,11 @@ namespace GanaderiaControl.Controllers
             _context = context;
         }
 
-        // LISTADO
+        // ======================= LISTADO =======================
         public async Task<IActionResult> Index(string? q, int? animalId, DateTime? desde, DateTime? hasta)
         {
             var query = _context.RegistrosLeche
+                .AsNoTracking()
                 .Include(r => r.Animal)
                 .AsQueryable();
 
@@ -38,6 +40,7 @@ namespace GanaderiaControl.Controllers
 
             if (desde.HasValue)
                 query = query.Where(r => r.Fecha >= desde.Value.Date);
+
             if (hasta.HasValue)
             {
                 var h = hasta.Value.Date.AddDays(1).AddTicks(-1);
@@ -50,6 +53,7 @@ namespace GanaderiaControl.Controllers
                 .ToListAsync();
 
             ViewBag.Animales = await _context.Animales
+                .AsNoTracking()
                 .OrderBy(a => a.Arete)
                 .Select(a => new SelectListItem
                 {
@@ -58,18 +62,14 @@ namespace GanaderiaControl.Controllers
                 })
                 .ToListAsync();
 
-            ViewBag.FiltroQ = q;
-            ViewBag.FiltroAnimalId = animalId;
-            ViewBag.FiltroDesde = desde?.ToString("yyyy-MM-dd");
-            ViewBag.FiltroHasta = hasta?.ToString("yyyy-MM-dd");
-
             return View(items);
         }
 
-        // DETALLE
+        // ======================= DETALLE =======================
         public async Task<IActionResult> Details(int id)
         {
             var registro = await _context.RegistrosLeche
+                .AsNoTracking()
                 .Include(r => r.Animal)
                 .FirstOrDefaultAsync(m => m.Id == id);
 
@@ -77,40 +77,85 @@ namespace GanaderiaControl.Controllers
             return View(registro);
         }
 
-        // CREAR
+        // ======================= CREAR =======================
+        // GET
         public async Task<IActionResult> Create()
         {
             await CargarAnimalesSelectAsync();
             return View(new RegistroLeche { Fecha = DateTime.Today });
         }
 
+        // POST
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("AnimalId,Fecha,LitrosDia")] RegistroLeche registro)
         {
+            // Muchas plantillas ponen [Required] en la navegación 'Animal'.
+            // Ese campo NO se postea; limpiamos esa validación fantasma:
+            ModelState.Remove("Animal");
+
+            // --- Normalización de fecha ---
+            if (registro.Fecha == default)
+            {
+                if (ModelState.ContainsKey(nameof(registro.Fecha)))
+                    ModelState[nameof(registro.Fecha)].Errors.Clear();
+                registro.Fecha = DateTime.Today;
+            }
             registro.Fecha = registro.Fecha.Date;
 
-            bool existe = await _context.RegistrosLeche
-                .AnyAsync(r => r.AnimalId == registro.AnimalId && r.Fecha == registro.Fecha);
+            // --- Validar animal ---
+            if (registro.AnimalId <= 0)
+                ModelState.AddModelError(nameof(registro.AnimalId), "Selecciona una vaca.");
 
-            if (existe)
-                ModelState.AddModelError(string.Empty, "Ya existe un registro de leche para esta vaca en esa fecha.");
+            // --- Reparar litros si el binder falló (coma/punto, vacío) ---
+            if (ModelState.TryGetValue(nameof(registro.LitrosDia), out var litrosEntry) && litrosEntry.Errors.Count > 0)
+            {
+                var raw = Request.Form[nameof(registro.LitrosDia)].ToString()?.Trim();
+                litrosEntry.Errors.Clear();
 
+                if (string.IsNullOrWhiteSpace(raw))
+                {
+                    registro.LitrosDia = 0m;
+                }
+                else
+                {
+                    if (decimal.TryParse(raw, NumberStyles.Number, CultureInfo.CurrentCulture, out var p) ||
+                        decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out p) ||
+                        decimal.TryParse(raw.Replace(',', '.'), NumberStyles.Number, CultureInfo.InvariantCulture, out p) ||
+                        decimal.TryParse(raw.Replace('.', ','), NumberStyles.Number, CultureInfo.GetCultureInfo("es-ES"), out p))
+                    {
+                        registro.LitrosDia = p;
+                    }
+                    else
+                    {
+                        ModelState.AddModelError(nameof(registro.LitrosDia), "Formato de litros inválido.");
+                    }
+                }
+            }
+
+            // --- Validar duplicado (AnimalId + Fecha) ---
+            if (ModelState.IsValid)
+            {
+                bool existe = await _context.RegistrosLeche
+                    .AnyAsync(r => r.AnimalId == registro.AnimalId && r.Fecha == registro.Fecha);
+                if (existe)
+                    ModelState.AddModelError(string.Empty, "Ya existe un registro de leche para esta vaca en esa fecha.");
+            }
+
+            // --- Si hay errores, re-mostrar con combo cargado ---
             if (!ModelState.IsValid)
             {
                 await CargarAnimalesSelectAsync(registro.AnimalId);
                 return View(registro);
             }
 
-            // Auditoría opcional si tu modelo la tiene:
-            // registro.CreatedAt = DateTime.UtcNow; registro.UpdatedAt = DateTime.UtcNow;
-
-            _context.Add(registro);
+            // --- Guardar ---
+            _context.RegistrosLeche.Add(registro);
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
 
-        // EDITAR
+        // ======================= EDITAR =======================
         public async Task<IActionResult> Edit(int id)
         {
             var registro = await _context.RegistrosLeche.FindAsync(id);
@@ -126,12 +171,13 @@ namespace GanaderiaControl.Controllers
         {
             if (id != registro.Id) return NotFound();
 
+            // limpiar posible validación sobre navegación
+            ModelState.Remove("Animal");
+
             registro.Fecha = registro.Fecha.Date;
 
             bool existeOtro = await _context.RegistrosLeche
-                .AnyAsync(r => r.Id != registro.Id &&
-                               r.AnimalId == registro.AnimalId &&
-                               r.Fecha == registro.Fecha);
+                .AnyAsync(r => r.Id != registro.Id && r.AnimalId == registro.AnimalId && r.Fecha == registro.Fecha);
             if (existeOtro)
                 ModelState.AddModelError(string.Empty, "Ya existe un registro de leche para esta vaca en esa fecha.");
 
@@ -143,14 +189,6 @@ namespace GanaderiaControl.Controllers
 
             try
             {
-                // Si tienes UpdatedAt (timestamptz):
-                // var cur = await _context.RegistrosLeche.FirstAsync(x => x.Id == id);
-                // cur.AnimalId = registro.AnimalId;
-                // cur.Fecha = registro.Fecha;
-                // cur.LitrosDia = registro.LitrosDia;
-                // cur.UpdatedAt = DateTime.UtcNow;
-                // await _context.SaveChangesAsync();
-
                 _context.Update(registro);
                 await _context.SaveChangesAsync();
             }
@@ -164,10 +202,11 @@ namespace GanaderiaControl.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // ELIMINAR
+        // ======================= ELIMINAR =======================
         public async Task<IActionResult> Delete(int id)
         {
             var registro = await _context.RegistrosLeche
+                .AsNoTracking()
                 .Include(r => r.Animal)
                 .FirstOrDefaultAsync(m => m.Id == id);
             if (registro == null) return NotFound();
@@ -188,47 +227,22 @@ namespace GanaderiaControl.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // AUXILIARES
+        // ======================= AUXILIARES =======================
+        private async Task<bool> RegistroExists(int id) =>
+            await _context.RegistrosLeche.AnyAsync(e => e.Id == id);
+
         private async Task CargarAnimalesSelectAsync(int? seleccionadoId = null)
         {
-            var lista = await _context.Animales
+            ViewBag.AnimalId = await _context.Animales
+                .AsNoTracking()
                 .OrderBy(a => a.Arete)
-                .Select(a => new
+                .Select(a => new SelectListItem
                 {
-                    a.Id,
-                    Texto = string.IsNullOrWhiteSpace(a.Nombre) ? a.Arete : $"{a.Arete} - {a.Nombre}"
+                    Value = a.Id.ToString(),
+                    Text = string.IsNullOrWhiteSpace(a.Nombre) ? a.Arete : $"{a.Arete} - {a.Nombre}",
+                    Selected = (seleccionadoId.HasValue && a.Id == seleccionadoId.Value)
                 })
                 .ToListAsync();
-
-            ViewBag.AnimalId = new SelectList(lista, "Id", "Texto", seleccionadoId);
-        }
-
-        private Task<bool> RegistroExists(int id) =>
-            _context.RegistrosLeche.AnyAsync(e => e.Id == id);
-
-        [HttpGet]
-        public async Task<IActionResult> AnimalesLookup(string? q)
-        {
-            var query = _context.Animales.AsQueryable();
-            if (!string.IsNullOrWhiteSpace(q))
-            {
-                string term = q.Trim().ToUpper();
-                query = query.Where(a =>
-                    (a.Arete != null && a.Arete.ToUpper().Contains(term)) ||
-                    (a.Nombre != null && a.Nombre.ToUpper().Contains(term)));
-            }
-
-            var data = await query
-                .OrderBy(a => a.Arete)
-                .Select(a => new
-                {
-                    a.Id,
-                    Texto = string.IsNullOrWhiteSpace(a.Nombre) ? a.Arete : $"{a.Arete} - {a.Nombre}"
-                })
-                .Take(50)
-                .ToListAsync();
-
-            return Json(data);
         }
     }
 }

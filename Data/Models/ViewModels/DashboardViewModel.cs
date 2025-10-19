@@ -45,5 +45,13 @@ namespace GanaderiaControl.Models.ViewModels
             public string Madre { get; set; } = "";
             public string TipoParto { get; set; } = "";
         }
+        public string[] LecheSemanaLabels { get; set; } = Array.Empty<string>();
+        public decimal[] LecheSemanaData { get; set; } = Array.Empty<decimal>();
+
+        public string[] LecheMesLabels { get; set; } = Array.Empty<string>();
+        public decimal[] LecheMesData { get; set; } = Array.Empty<decimal>();
+
+        public string[] LecheAnioLabels { get; set; } = Array.Empty<string>();
+        public decimal[] LecheAnioData { get; set; } = Array.Empty<decimal>();
     }
 }

@@ -9,13 +9,58 @@
     <a href="@Url.Action("Index", "RegistroLeche")" class="btn btn-outline-secondary">Volver</a>
 </div>
 
-<form asp-action="Edit" method="post" class="card shadow-sm">
+<form asp-action="Edit" asp-route-id="@Model.Id" method="post" class="card shadow-sm" id="form-registro-leche-edit">
     @Html.AntiForgeryToken()
-    <input type="hidden" asp-for="Id" />
+    <input type="hidden" name="Id" value="@Model.Id" />
+
     <div class="card-body">
-        <partial name="_Form" model="Model" />
-        <div asp-validation-summary="ModelOnly" class="text-danger mt-3"></div>
+        <div class="row g-3">
+            <!-- Vaca -->
+            <div class="col-12 col-md-6">
+                <label for="AnimalId" class="form-label">Vaca</label>
+                <select name="AnimalId" id="AnimalId" class="form-select" required>
+                    <option value="">-- Selecciona una vaca --</option>
+                    @if (ViewBag.AnimalId != null)
+                    {
+                        foreach (var a in (IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>)ViewBag.AnimalId)
+                        {
+                            var sel = (Model?.AnimalId.ToString() == a.Value) || a.Selected ? "selected" : "";
+                            <option value="@a.Value" @sel>@a.Text</option>
+                        }
+                    }
+                </select>
+                <span asp-validation-for="AnimalId" class="text-danger"></span>
+            </div>
+
+            <!-- Fecha -->
+            <div class="col-12 col-md-3">
+                <label for="Fecha" class="form-label">Fecha</label>
+                <input name="Fecha"
+                       id="Fecha"
+                       type="date"
+                       class="form-control"
+                       value="@Model.Fecha.ToString("yyyy-MM-dd")"
+                       required />
+                <span asp-validation-for="Fecha" class="text-danger"></span>
+            </div>
+
+            <!-- Litros del día -->
+            <div class="col-12 col-md-3">
+                <label for="LitrosDia" class="form-label">Litros (día)</label>
+                <input name="LitrosDia"
+                       id="LitrosDia"
+                       type="number"
+                       step="0.01"
+                       min="0"
+                       class="form-control"
+                       value="@Model.LitrosDia.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                <span asp-validation-for="LitrosDia" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div asp-validation-summary="All" class="text-danger mt-3"></div>
     </div>
+
     <div class="card-footer d-flex gap-2">
         <button type="submit" class="btn btn-primary">Guardar cambios</button>
         <a href="@Url.Action("Index", "RegistroLeche")" class="btn btn-light border">Cancelar</a>

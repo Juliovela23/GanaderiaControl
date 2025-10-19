@@ -4,7 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Authorization;
-
+using GanaderiaControl.Services.Email;
+using GanaderiaControl.Services.Alerts;
 var builder = WebApplication.CreateBuilder(args);
 
 // ---- Puerto (Render/Containers) ----
@@ -68,7 +69,14 @@ builder.Services.Configure<ForwardedHeadersOptions>(opt =>
     opt.KnownNetworks.Clear();
     opt.KnownProxies.Clear();
 });
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
+builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 
+// Resolver de destinatarios de alerta
+builder.Services.AddScoped<IAlertRecipientResolver, AlertRecipientResolver>();
+
+// Scheduler de correos
+builder.Services.AddHostedService<AlertEmailScheduler>();
 var app = builder.Build();
 
 app.UseForwardedHeaders();

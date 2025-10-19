@@ -1,7 +1,24 @@
 ﻿@model GanaderiaControl.Models.ViewModels.DashboardViewModel
+@using System.Text.Json
 @{
     Layout = "_Layout";
     ViewData["Title"] = "Dashboard";
+
+    // Defensivo: si el controller aún no llena estas props, evita null ref:
+    var semanaLabels = Model.LecheSemanaLabels ?? Array.Empty<string>();
+    var semanaData = Model.LecheSemanaData ?? Array.Empty<decimal>();
+    var mesLabels = Model.LecheMesLabels ?? Array.Empty<string>();
+    var mesData = Model.LecheMesData ?? Array.Empty<decimal>();
+    var anioLabels = Model.LecheAnioLabels ?? Array.Empty<string>();
+    var anioData = Model.LecheAnioData ?? Array.Empty<decimal>();
+
+    // Serialización segura a JSON
+    var jsonSemanaLabels = JsonSerializer.Serialize(semanaLabels);
+    var jsonSemanaData = JsonSerializer.Serialize(semanaData);
+    var jsonMesLabels = JsonSerializer.Serialize(mesLabels);
+    var jsonMesData = JsonSerializer.Serialize(mesData);
+    var jsonAnioLabels = JsonSerializer.Serialize(anioLabels);
+    var jsonAnioData = JsonSerializer.Serialize(anioData);
 }
 
 @section Styles {
@@ -92,6 +109,21 @@
             background: #ffb3b3;
             color: #7a001c;
         }
+
+        /* Tabs "Semana/Mes/Año" */
+        .gc-pill {
+            border: 2px solid rgba(0,0,0,.08);
+            font-weight: 600;
+            color: #3d9970;
+        }
+
+            .gc-pill.active,
+            .gc-pill:focus,
+            .gc-pill:hover {
+                border-color: #3d9970;
+                color: #2e7d57;
+                background: rgba(61,153,112,.06);
+            }
     </style>
 }
 
@@ -176,6 +208,23 @@
         </div>
     </div>
 
+    <!-- ===== CARD: Gráfico Producción de Leche ===== -->
+    <div class="card gc-card mt-4">
+        <div class="card-body">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <h2 class="h6 mb-0 gc-section-title">🥛 Producción de leche</h2>
+                <div class="d-flex gap-2" id="milkTabs">
+                    <button type="button" class="btn btn-sm gc-btn-outline gc-pill active" id="tab-semana">Semana</button>
+                    <button type="button" class="btn btn-sm gc-btn-outline gc-pill" id="tab-mes">Mes</button>
+                    <button type="button" class="btn btn-sm gc-btn-outline gc-pill" id="tab-anio">Año</button>
+                </div>
+            </div>
+            <div style="height: 320px">
+                <canvas id="milkChart" aria-label="Gráfico de producción de leche" role="img"></canvas>
+            </div>
+        </div>
+    </div>
+
     <!-- Listas -->
     <div class="row mt-4 g-3">
         <!-- Próximas alertas -->
@@ -199,7 +248,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @if (Model.ProximasAlertas.Any())
+                                @if (Model.ProximasAlertas != null && Model.ProximasAlertas.Any())
                                 {
                                     foreach (var a in Model.ProximasAlertas)
                                     {
@@ -258,7 +307,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @if (Model.UltimosServicios.Any())
+                                @if (Model.UltimosServicios != null && Model.UltimosServicios.Any())
                                 {
                                     foreach (var s in Model.UltimosServicios)
                                     {
@@ -298,7 +347,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @if (Model.PartosRecientes.Any())
+                                @if (Model.PartosRecientes != null && Model.PartosRecientes.Any())
                                 {
                                     foreach (var p in Model.PartosRecientes)
                                     {
@@ -321,3 +370,100 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <!-- Chart.js (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+        // Datos desde el servidor
+        const dataSemana = {
+            labels: @Html.Raw(jsonSemanaLabels),
+            data:   @Html.Raw(jsonSemanaData)
+        };
+        const dataMes = {
+            labels: @Html.Raw(jsonMesLabels),
+            data:   @Html.Raw(jsonMesData)
+        };
+        const dataAnio = {
+            labels: @Html.Raw(jsonAnioLabels),
+            data:   @Html.Raw(jsonAnioData)
+        };
+
+        // Colores siguiendo el tema
+        const baseColor = 'rgba(61, 153, 112, 1)';
+        const fillColor = 'rgba(61, 153, 112, 0.10)';
+        const gridColor = 'rgba(0,0,0,0.06)';
+        const tickColor = '#6b7280';
+
+        let chart;
+        const ctx = document.getElementById('milkChart').getContext('2d');
+
+        function makeDataset(labels, values) {
+            return {
+                labels: labels,
+                datasets: [{
+                    label: 'Litros',
+                    data: values,
+                    tension: 0.35,
+                    borderWidth: 2,
+                    borderColor: baseColor,
+                    backgroundColor: fillColor,
+                    fill: true,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    pointBackgroundColor: baseColor
+                }]
+            };
+        }
+
+        function renderChart(labels, values) {
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: makeDataset(labels, values),
+                options: {
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: c => `${c.parsed.y?.toLocaleString?.() ?? c.parsed.y} L`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: gridColor },
+                            ticks: { color: tickColor }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: gridColor },
+                            ticks: {
+                                color: tickColor,
+                                callback: v => `${v} L`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Inicial: Semana
+        renderChart(dataSemana.labels, dataSemana.data);
+
+        // Tabs
+        const tabSemana = document.getElementById('tab-semana');
+        const tabMes    = document.getElementById('tab-mes');
+        const tabAnio   = document.getElementById('tab-anio');
+
+        tabSemana.addEventListener('click', () => { setActive(tabSemana); renderChart(dataSemana.labels, dataSemana.data); });
+        tabMes.addEventListener('click',    () => { setActive(tabMes);    renderChart(dataMes.labels, dataMes.data); });
+        tabAnio.addEventListener('click',   () => { setActive(tabAnio);   renderChart(dataAnio.labels, dataAnio.data); });
+
+        function setActive(btn) {
+            document.querySelectorAll('#milkTabs .gc-pill').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+    </script>
+}
