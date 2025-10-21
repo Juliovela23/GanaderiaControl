@@ -11,4 +11,6 @@ public class Secado : AuditableEntity
 
     [MaxLength(240)] public string? Motivo { get; set; }
     [MaxLength(240)] public string? Observaciones { get; set; }
+    public string? UserId { get; set; }
+
 }

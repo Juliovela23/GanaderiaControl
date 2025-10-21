@@ -29,4 +29,5 @@ public class Alerta : AuditableEntity
     public DateTime? Aviso7EnviadoUtc { get; set; }
     public bool Aviso0Enviado { get; set; }
     public DateTime? Aviso0EnviadoUtc { get; set; }
+    public string? userId { get; set; }
 }

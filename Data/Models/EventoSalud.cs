@@ -11,4 +11,6 @@ public class EventoSalud : AuditableEntity
     [MaxLength(160)] public string Diagnostico { get; set; } = null!;
     [MaxLength(240)] public string? Tratamiento { get; set; }
     [MaxLength(240)] public string? Restricciones { get; set; } // retiro leche/carne
+    public string? UserId { get; set; }
+
 }

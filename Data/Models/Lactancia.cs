@@ -11,4 +11,6 @@ public class Lactancia : AuditableEntity
     public DateTime? FechaFin { get; set; }
     public decimal? ProduccionPromedioDiaLitros { get; set; }
     [MaxLength(240)] public string? Observaciones { get; set; }
+    public string? UserId { get; set; }
+
 }
