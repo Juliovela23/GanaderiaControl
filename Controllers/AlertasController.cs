@@ -113,7 +113,7 @@ namespace GanaderiaControl.Controllers
 
             // Setea usuario creador / destinatario
             var uid = CurrentUserId();
-            alerta.UserId = uid;
+            alerta.userId = uid;
             alerta.DestinatarioUserId ??= uid;
 
             var animalOk = await _context.Animales.AnyAsync(a => a.Id == alerta.AnimalId && !a.IsDeleted);
@@ -202,7 +202,7 @@ namespace GanaderiaControl.Controllers
                 entity.DestinatarioUserId = alerta.DestinatarioUserId ?? entity.DestinatarioUserId ?? CurrentUserId();
 
                 // Guarda el usuario que actualiza
-                entity.UserId = CurrentUserId();
+                entity.userId = CurrentUserId();
 
                 entity.UpdatedAt = DateTime.UtcNow; // UTC
 
@@ -242,7 +242,7 @@ namespace GanaderiaControl.Controllers
 
             alerta.IsDeleted = true;
             alerta.UpdatedAt = DateTime.UtcNow; // UTC
-            alerta.UserId = CurrentUserId();
+            alerta.userId = CurrentUserId();
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
@@ -316,7 +316,7 @@ namespace GanaderiaControl.Controllers
             {
                 a.Estado = EstadoAlerta.Vencida;
                 a.UpdatedAt = DateTime.UtcNow; // UTC
-                a.UserId = CurrentUserId();
+                a.userId = CurrentUserId();
             }
             await _context.SaveChangesAsync();
         }
@@ -332,7 +332,7 @@ namespace GanaderiaControl.Controllers
                 alerta.Estado = EstadoAlerta.Notificada;
 
             alerta.UpdatedAt = DateTime.UtcNow;
-            alerta.UserId = CurrentUserId();
+            alerta.userId = CurrentUserId();
             await _context.SaveChangesAsync();
 
             if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
@@ -350,7 +350,7 @@ namespace GanaderiaControl.Controllers
 
             alerta.Estado = EstadoAlerta.Atendida;
             alerta.UpdatedAt = DateTime.UtcNow;
-            alerta.UserId = CurrentUserId();
+            alerta.userId = CurrentUserId();
             await _context.SaveChangesAsync();
 
             if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))

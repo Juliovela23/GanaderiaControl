@@ -225,7 +225,7 @@ namespace GanaderiaControl.Controllers
                     : EstadoReproductivo.Abierta;
 
                 animal.UpdatedAt = DateTime.UtcNow; // UTC
-                animal.UserId = CurrentUserId();
+                animal.userId = CurrentUserId();
                 await _db.SaveChangesAsync();
             }
 
@@ -277,7 +277,7 @@ namespace GanaderiaControl.Controllers
                     Estado = EstadoAlerta.Pendiente,
                     Notas = nota,
                     DestinatarioUserId = uid, // destinatario por defecto = actual
-                    UserId = uid,             // auditoría
+                    userId = uid,             // auditoría
                     CreatedAt = DateTime.UtcNow, // UTC
                     UpdatedAt = DateTime.UtcNow
                 });

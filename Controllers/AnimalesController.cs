@@ -112,7 +112,7 @@ namespace GanaderiaControl.Controllers
                 // Auditoría en UTC + UserId
                 animal.CreatedAt = DateTime.UtcNow;
                 animal.UpdatedAt = DateTime.UtcNow;
-                animal.UserId = CurrentUserId();
+                animal.userId = CurrentUserId();
 
                 _context.Add(animal);
                 await _context.SaveChangesAsync();
@@ -191,7 +191,7 @@ namespace GanaderiaControl.Controllers
                 entity.MadreId = animal.MadreId;
                 entity.PadreId = animal.PadreId;
                 entity.UpdatedAt = DateTime.UtcNow;     // auditoría UTC
-                entity.UserId = CurrentUserId();      // último usuario que modificó
+                entity.userId = CurrentUserId();      // último usuario que modificó
 
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
@@ -234,7 +234,7 @@ namespace GanaderiaControl.Controllers
 
             animal.IsDeleted = true;
             animal.UpdatedAt = DateTime.UtcNow; // auditoría UTC
-            animal.UserId = CurrentUserId(); // quién lo marcó como eliminado
+            animal.userId = CurrentUserId(); // quién lo marcó como eliminado
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
