@@ -25,12 +25,14 @@ namespace GanaderiaControl.Controllers
             _userManager = userManager;
         }
 
+        private string? CurrentUserId() => _userManager.GetUserId(User);
+
         // ================= PARTOS =================
 
         // LISTADO
         public async Task<IActionResult> Index(string? q)
         {
-            var userId = _userManager.GetUserId(User);
+            var userId = CurrentUserId();
 
             var query = _db.Partos
                 .AsNoTracking()
@@ -58,7 +60,7 @@ namespace GanaderiaControl.Controllers
         // DETALLE
         public async Task<IActionResult> Details(int id)
         {
-            var userId = _userManager.GetUserId(User);
+            var userId = CurrentUserId();
 
             var model = await _db.Partos
                 .AsNoTracking()
@@ -92,10 +94,10 @@ namespace GanaderiaControl.Controllers
         [HttpPost, ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(PartoCreateVM vm)
         {
-            var userId = _userManager.GetUserId(User);
+            var userId = CurrentUserId();
 
-            // Validación de madre
-            var madreOk = await _db.Animales.AnyAsync(a => a.Id == vm.MadreId && !a.IsDeleted);
+            // Validación de madre (del usuario)
+            var madreOk = await _db.Animales.AnyAsync(a => a.Id == vm.MadreId && !a.IsDeleted && a.userId == userId);
             if (!madreOk)
                 ModelState.AddModelError(nameof(vm.MadreId), "Animal (madre) inválido.");
 
@@ -113,7 +115,7 @@ namespace GanaderiaControl.Controllers
                         ModelState.AddModelError(nameof(vm.CriaAreteAsignado), "Indique el arete para registrar el animal.");
                     else
                     {
-                        var yaExisteArete = await _db.Animales.AnyAsync(a => !a.IsDeleted && a.Arete == vm.CriaAreteAsignado);
+                        var yaExisteArete = await _db.Animales.AnyAsync(a => !a.IsDeleted && a.Arete == vm.CriaAreteAsignado && a.userId == userId);
                         if (yaExisteArete)
                             ModelState.AddModelError(nameof(vm.CriaAreteAsignado), "Ya existe un animal con ese arete.");
                     }
@@ -208,7 +210,7 @@ namespace GanaderiaControl.Controllers
         // ===== EDIT =====
         public async Task<IActionResult> Edit(int id)
         {
-            var userId = _userManager.GetUserId(User);
+            var userId = CurrentUserId();
 
             var model = await _db.Partos
                 .Where(p => !p.IsDeleted && p.userId == userId)
@@ -222,10 +224,10 @@ namespace GanaderiaControl.Controllers
         [HttpPost, ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, [Bind("Id,MadreId,FechaParto,TipoParto,RetencionPlacenta,Asistencia,Observaciones,Complicaciones")] Parto model)
         {
-            var userId = _userManager.GetUserId(User);
+            var userId = CurrentUserId();
             if (id != model.Id) return NotFound();
 
-            var madreOk = await _db.Animales.AnyAsync(a => a.Id == model.MadreId && !a.IsDeleted);
+            var madreOk = await _db.Animales.AnyAsync(a => a.Id == model.MadreId && !a.IsDeleted && a.userId == userId);
             if (!madreOk)
                 ModelState.AddModelError(nameof(model.MadreId), "Animal (madre) inválido.");
 
@@ -247,7 +249,7 @@ namespace GanaderiaControl.Controllers
             current.Asistencia = model.Asistencia;
             current.Observaciones = model.Observaciones;
             current.Complicaciones = model.Complicaciones;
-            current.userId = userId;
+            current.userId = userId;                // quién actualiza
             current.UpdatedAt = DateTime.UtcNow;
 
             try
@@ -267,7 +269,7 @@ namespace GanaderiaControl.Controllers
         // ===== DELETE =====
         public async Task<IActionResult> Delete(int id)
         {
-            var userId = _userManager.GetUserId(User);
+            var userId = CurrentUserId();
 
             var model = await _db.Partos
                 .AsNoTracking()
@@ -282,12 +284,13 @@ namespace GanaderiaControl.Controllers
         [HttpPost, ActionName("Delete"), ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var userId = _userManager.GetUserId(User);
+            var userId = CurrentUserId();
 
             var model = await _db.Partos.FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted && p.userId == userId);
             if (model == null) return NotFound();
 
             model.IsDeleted = true;
+            model.userId = userId;          // quién elimina
             model.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
 
@@ -300,7 +303,7 @@ namespace GanaderiaControl.Controllers
         // LISTAR CRIAS POR PARTO
         public async Task<IActionResult> Crias(int partoId)
         {
-            var userId = _userManager.GetUserId(User);
+            var userId = CurrentUserId();
             var parto = await _db.Partos
                 .AsNoTracking()
                 .Include(p => p.Madre)
@@ -320,7 +323,7 @@ namespace GanaderiaControl.Controllers
         // DETALLE CRIA
         public async Task<IActionResult> CriaDetails(int id)
         {
-            var userId = _userManager.GetUserId(User);
+            var userId = CurrentUserId();
 
             var cria = await _db.Crias
                 .AsNoTracking()
@@ -334,7 +337,7 @@ namespace GanaderiaControl.Controllers
         // CREATE CRIA (GET)
         public async Task<IActionResult> CriaCreate(int partoId)
         {
-            var userId = _userManager.GetUserId(User);
+            var userId = CurrentUserId();
             var parto = await _db.Partos
                 .AsNoTracking()
                 .Include(p => p.Madre)
@@ -342,17 +345,14 @@ namespace GanaderiaControl.Controllers
             if (parto == null) return NotFound();
 
             ViewBag.Parto = parto;
-            return View(new Cria
-            {
-                PartoId = partoId
-            });
+            return View(new Cria { PartoId = partoId });
         }
 
         // CREATE CRIA (POST)
         [HttpPost, ValidateAntiForgeryToken]
         public async Task<IActionResult> CriaCreate([Bind("PartoId,Sexo,PesoNacimientoKg,AreteAsignado,Estado,Observaciones")] Cria model)
         {
-            var userId = _userManager.GetUserId(User);
+            var userId = CurrentUserId();
 
             // validar pertenencia del parto
             var partoOk = await _db.Partos.AnyAsync(p => p.Id == model.PartoId && !p.IsDeleted && p.userId == userId);
@@ -390,7 +390,7 @@ namespace GanaderiaControl.Controllers
         // EDIT CRIA (GET)
         public async Task<IActionResult> CriaEdit(int id)
         {
-            var userId = _userManager.GetUserId(User);
+            var userId = CurrentUserId();
             var model = await _db.Crias
                 .Include(c => c.Parto)
                 .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted && c.userId == userId);
@@ -405,7 +405,7 @@ namespace GanaderiaControl.Controllers
         [HttpPost, ValidateAntiForgeryToken]
         public async Task<IActionResult> CriaEdit(int id, [Bind("Id,PartoId,Sexo,PesoNacimientoKg,AreteAsignado,Estado,Observaciones")] Cria model)
         {
-            var userId = _userManager.GetUserId(User);
+            var userId = CurrentUserId();
             if (id != model.Id) return NotFound();
 
             // validar pertenencia del parto
@@ -428,6 +428,7 @@ namespace GanaderiaControl.Controllers
             current.AreteAsignado = model.AreteAsignado;
             current.Estado = model.Estado;
             current.Observaciones = model.Observaciones;
+            current.userId = userId;           // quién actualiza
             current.UpdatedAt = DateTime.UtcNow;
 
             try
@@ -448,7 +449,7 @@ namespace GanaderiaControl.Controllers
         // DELETE CRIA (GET)
         public async Task<IActionResult> CriaDelete(int id)
         {
-            var userId = _userManager.GetUserId(User);
+            var userId = CurrentUserId();
             var model = await _db.Crias
                 .AsNoTracking()
                 .Include(c => c.Parto).ThenInclude(p => p.Madre)
@@ -462,11 +463,12 @@ namespace GanaderiaControl.Controllers
         [HttpPost, ActionName("CriaDelete"), ValidateAntiForgeryToken]
         public async Task<IActionResult> CriaDeleteConfirmed(int id)
         {
-            var userId = _userManager.GetUserId(User);
+            var userId = CurrentUserId();
             var model = await _db.Crias.FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted && c.userId == userId);
             if (model == null) return NotFound();
 
             model.IsDeleted = true;
+            model.userId = userId;          // quién elimina
             model.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
 
@@ -477,9 +479,10 @@ namespace GanaderiaControl.Controllers
         // ================= HELPERS =================
         private async Task CargarMadres(int? madreId = null)
         {
+            var userId = CurrentUserId();
             var animales = await _db.Animales
                 .AsNoTracking()
-                .Where(a => !a.IsDeleted)
+                .Where(a => !a.IsDeleted && a.userId == userId)
                 .OrderBy(a => a.Arete)
                 .Select(a => new { a.Id, Etiqueta = a.Arete + (a.Nombre != null ? " - " + a.Nombre : "") })
                 .ToListAsync();
@@ -489,7 +492,7 @@ namespace GanaderiaControl.Controllers
 
         public async Task<IActionResult> CriasAll(string? q)
         {
-            var userId = _userManager.GetUserId(User);
+            var userId = CurrentUserId();
 
             var query = _db.Crias
                 .AsNoTracking()

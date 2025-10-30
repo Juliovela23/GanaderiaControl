@@ -1,30 +1,41 @@
-﻿using GanaderiaControl.Data;
-using GanaderiaControl.Models;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.EntityFrameworkCore;
-using System;
+﻿using System;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
+using GanaderiaControl.Data;
+using GanaderiaControl.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.EntityFrameworkCore;
 
 namespace GanaderiaControl.Controllers
 {
+    [Authorize]
     public class RegistroLecheController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly UserManager<IdentityUser> _userManager;
 
-        public RegistroLecheController(ApplicationDbContext context)
+        public RegistroLecheController(ApplicationDbContext context, UserManager<IdentityUser> userManager)
         {
             _context = context;
+            _userManager = userManager;
         }
+
+        private string? CurrentUserId() => _userManager.GetUserId(User);
 
         // ======================= LISTADO =======================
         public async Task<IActionResult> Index(string? q, int? animalId, DateTime? desde, DateTime? hasta)
         {
+            var uid = CurrentUserId();
+
             var query = _context.RegistrosLeche
                 .AsNoTracking()
+                .Where(r => !r.IsDeleted && r.UserId == uid)
                 .Include(r => r.Animal)
+                .Where(r => r.Animal != null && !r.Animal.IsDeleted && r.Animal.userId == uid)
                 .AsQueryable();
 
             if (animalId.HasValue)
@@ -32,7 +43,7 @@ namespace GanaderiaControl.Controllers
 
             if (!string.IsNullOrWhiteSpace(q))
             {
-                string term = q.Trim().ToUpper();
+                string term = q.Trim().ToUpperInvariant();
                 query = query.Where(r =>
                     (r.Animal.Arete != null && r.Animal.Arete.ToUpper().Contains(term)) ||
                     (r.Animal.Nombre != null && r.Animal.Nombre.ToUpper().Contains(term)));
@@ -42,10 +53,7 @@ namespace GanaderiaControl.Controllers
                 query = query.Where(r => r.Fecha >= desde.Value.Date);
 
             if (hasta.HasValue)
-            {
-                var h = hasta.Value.Date.AddDays(1).AddTicks(-1);
-                query = query.Where(r => r.Fecha <= h);
-            }
+                query = query.Where(r => r.Fecha <= hasta.Value.Date);
 
             var items = await query
                 .OrderByDescending(r => r.Fecha)
@@ -54,6 +62,7 @@ namespace GanaderiaControl.Controllers
 
             ViewBag.Animales = await _context.Animales
                 .AsNoTracking()
+                .Where(a => !a.IsDeleted && a.userId == uid)
                 .OrderBy(a => a.Arete)
                 .Select(a => new SelectListItem
                 {
@@ -68,10 +77,17 @@ namespace GanaderiaControl.Controllers
         // ======================= DETALLE =======================
         public async Task<IActionResult> Details(int id)
         {
+            var uid = CurrentUserId();
+
             var registro = await _context.RegistrosLeche
                 .AsNoTracking()
                 .Include(r => r.Animal)
-                .FirstOrDefaultAsync(m => m.Id == id);
+                .FirstOrDefaultAsync(m => m.Id == id
+                                          && !m.IsDeleted
+                                          && m.UserId == uid
+                                          && m.Animal != null
+                                          && !m.Animal.IsDeleted
+                                          && m.Animal.userId == uid);
 
             if (registro == null) return NotFound();
             return View(registro);
@@ -90,11 +106,12 @@ namespace GanaderiaControl.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("AnimalId,Fecha,LitrosDia")] RegistroLeche registro)
         {
-            // Muchas plantillas ponen [Required] en la navegación 'Animal'.
-            // Ese campo NO se postea; limpiamos esa validación fantasma:
+            var uid = CurrentUserId();
+
+            // Navegación no posteada
             ModelState.Remove("Animal");
 
-            // --- Normalización de fecha ---
+            // Normalizar fecha
             if (registro.Fecha == default)
             {
                 if (ModelState.ContainsKey(nameof(registro.Fecha)))
@@ -103,11 +120,14 @@ namespace GanaderiaControl.Controllers
             }
             registro.Fecha = registro.Fecha.Date;
 
-            // --- Validar animal ---
-            if (registro.AnimalId <= 0)
-                ModelState.AddModelError(nameof(registro.AnimalId), "Selecciona una vaca.");
+            // Validar animal del usuario
+            if (registro.AnimalId <= 0 ||
+                !await _context.Animales.AnyAsync(a => a.Id == registro.AnimalId && !a.IsDeleted && a.userId == uid))
+            {
+                ModelState.AddModelError(nameof(registro.AnimalId), "Selecciona una vaca válida.");
+            }
 
-            // --- Reparar litros si el binder falló (coma/punto, vacío) ---
+            // Reparar posibles errores de parseo en LitrosDia
             if (ModelState.TryGetValue(nameof(registro.LitrosDia), out var litrosEntry) && litrosEntry.Errors.Count > 0)
             {
                 var raw = Request.Form[nameof(registro.LitrosDia)].ToString()?.Trim();
@@ -133,23 +153,29 @@ namespace GanaderiaControl.Controllers
                 }
             }
 
-            // --- Validar duplicado (AnimalId + Fecha) ---
+            // Validar duplicado (por usuario)
             if (ModelState.IsValid)
             {
                 bool existe = await _context.RegistrosLeche
-                    .AnyAsync(r => r.AnimalId == registro.AnimalId && r.Fecha == registro.Fecha);
+                    .AnyAsync(r => !r.IsDeleted
+                                   && r.UserId == uid
+                                   && r.AnimalId == registro.AnimalId
+                                   && r.Fecha == registro.Fecha);
                 if (existe)
                     ModelState.AddModelError(string.Empty, "Ya existe un registro de leche para esta vaca en esa fecha.");
             }
 
-            // --- Si hay errores, re-mostrar con combo cargado ---
             if (!ModelState.IsValid)
             {
                 await CargarAnimalesSelectAsync(registro.AnimalId);
                 return View(registro);
             }
 
-            // --- Guardar ---
+            // Guardar
+            registro.UserId = uid;
+            registro.CreatedAt = DateTime.UtcNow;
+            registro.UpdatedAt = DateTime.UtcNow;
+
             _context.RegistrosLeche.Add(registro);
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
@@ -158,7 +184,10 @@ namespace GanaderiaControl.Controllers
         // ======================= EDITAR =======================
         public async Task<IActionResult> Edit(int id)
         {
-            var registro = await _context.RegistrosLeche.FindAsync(id);
+            var uid = CurrentUserId();
+
+            var registro = await _context.RegistrosLeche
+                .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted && r.UserId == uid);
             if (registro == null) return NotFound();
 
             await CargarAnimalesSelectAsync(registro.AnimalId);
@@ -169,15 +198,28 @@ namespace GanaderiaControl.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, [Bind("Id,AnimalId,Fecha,LitrosDia")] RegistroLeche registro)
         {
+            var uid = CurrentUserId();
             if (id != registro.Id) return NotFound();
 
-            // limpiar posible validación sobre navegación
+            // Navegación no posteada
             ModelState.Remove("Animal");
 
             registro.Fecha = registro.Fecha.Date;
 
+            // Validar animal del usuario
+            if (registro.AnimalId <= 0 ||
+                !await _context.Animales.AnyAsync(a => a.Id == registro.AnimalId && !a.IsDeleted && a.userId == uid))
+            {
+                ModelState.AddModelError(nameof(registro.AnimalId), "Selecciona una vaca válida.");
+            }
+
+            // Validar duplicado (otro registro del mismo usuario)
             bool existeOtro = await _context.RegistrosLeche
-                .AnyAsync(r => r.Id != registro.Id && r.AnimalId == registro.AnimalId && r.Fecha == registro.Fecha);
+                .AnyAsync(r => !r.IsDeleted
+                               && r.UserId == uid
+                               && r.Id != registro.Id
+                               && r.AnimalId == registro.AnimalId
+                               && r.Fecha == registro.Fecha);
             if (existeOtro)
                 ModelState.AddModelError(string.Empty, "Ya existe un registro de leche para esta vaca en esa fecha.");
 
@@ -187,28 +229,35 @@ namespace GanaderiaControl.Controllers
                 return View(registro);
             }
 
-            try
-            {
-                _context.Update(registro);
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!await RegistroExists(registro.Id))
-                    return NotFound();
-                throw;
-            }
+            // Actualizar con carga previa para no pisar UserId ni flags
+            var entity = await _context.RegistrosLeche
+                .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted && r.UserId == uid);
+            if (entity == null) return NotFound();
 
+            entity.AnimalId = registro.AnimalId;
+            entity.Fecha = registro.Fecha;
+            entity.LitrosDia = registro.LitrosDia;
+            entity.UserId = uid; // quién modificó
+            entity.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
 
         // ======================= ELIMINAR =======================
         public async Task<IActionResult> Delete(int id)
         {
+            var uid = CurrentUserId();
+
             var registro = await _context.RegistrosLeche
                 .AsNoTracking()
                 .Include(r => r.Animal)
-                .FirstOrDefaultAsync(m => m.Id == id);
+                .FirstOrDefaultAsync(m => m.Id == id
+                                          && !m.IsDeleted
+                                          && m.UserId == uid
+                                          && m.Animal != null
+                                          && !m.Animal.IsDeleted
+                                          && m.Animal.userId == uid);
             if (registro == null) return NotFound();
 
             return View(registro);
@@ -218,10 +267,15 @@ namespace GanaderiaControl.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var registro = await _context.RegistrosLeche.FindAsync(id);
+            var uid = CurrentUserId();
+
+            var registro = await _context.RegistrosLeche
+                .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted && r.UserId == uid);
             if (registro != null)
             {
-                _context.RegistrosLeche.Remove(registro);
+                registro.IsDeleted = true;          // soft delete
+                registro.UserId = uid;              // quién elimina
+                registro.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
             }
             return RedirectToAction(nameof(Index));
@@ -229,12 +283,15 @@ namespace GanaderiaControl.Controllers
 
         // ======================= AUXILIARES =======================
         private async Task<bool> RegistroExists(int id) =>
-            await _context.RegistrosLeche.AnyAsync(e => e.Id == id);
+            await _context.RegistrosLeche.AnyAsync(e => e.Id == id && !e.IsDeleted);
 
         private async Task CargarAnimalesSelectAsync(int? seleccionadoId = null)
         {
+            var uid = CurrentUserId();
+
             ViewBag.AnimalId = await _context.Animales
                 .AsNoTracking()
+                .Where(a => !a.IsDeleted && a.userId == uid)
                 .OrderBy(a => a.Arete)
                 .Select(a => new SelectListItem
                 {

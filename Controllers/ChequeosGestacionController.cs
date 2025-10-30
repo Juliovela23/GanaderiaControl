@@ -24,6 +24,8 @@ namespace GanaderiaControl.Controllers
             _userManager = userManager;
         }
 
+        private string? CurrentUserId() => _userManager.GetUserId(User);
+
         public async Task<IActionResult> Index(string? q)
         {
             var query = _db.ChequeosGestacion
@@ -68,8 +70,14 @@ namespace GanaderiaControl.Controllers
         }
 
         [HttpPost, ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("AnimalId,FechaChequeo,Resultado,Observaciones")] ChequeoGestacion model, bool crearAlertaReServicio = false)
+        public async Task<IActionResult> Create(
+            [Bind("AnimalId,FechaChequeo,Resultado,Observaciones")] ChequeoGestacion model,
+            bool crearAlertaReServicio = false)
         {
+            // Evita validaciones de navegación no posteadas
+            ModelState.Remove("Animal");
+            ModelState.Remove("Animal.Nombre");
+
             var animalOk = await _db.Animales.AnyAsync(a => a.Id == model.AnimalId && !a.IsDeleted);
             if (!animalOk)
                 ModelState.AddModelError(nameof(model.AnimalId), "Animal inválido.");
@@ -87,6 +95,7 @@ namespace GanaderiaControl.Controllers
             {
                 model.CreatedAt = DateTime.UtcNow; // UTC
                 model.UpdatedAt = DateTime.UtcNow;
+                model.UserId = CurrentUserId();
 
                 _db.Add(model);
                 await _db.SaveChangesAsync();
@@ -117,9 +126,16 @@ namespace GanaderiaControl.Controllers
         }
 
         [HttpPost, ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,AnimalId,FechaChequeo,Resultado,Observaciones")] ChequeoGestacion model, bool crearAlertaReServicio = false)
+        public async Task<IActionResult> Edit(
+            int id,
+            [Bind("Id,AnimalId,FechaChequeo,Resultado,Observaciones")] ChequeoGestacion model,
+            bool crearAlertaReServicio = false)
         {
             if (id != model.Id) return NotFound();
+
+            // Evita validaciones de navegación no posteadas
+            ModelState.Remove("Animal");
+            ModelState.Remove("Animal.Nombre");
 
             var animalOk = await _db.Animales.AnyAsync(a => a.Id == model.AnimalId && !a.IsDeleted);
             if (!animalOk)
@@ -142,6 +158,7 @@ namespace GanaderiaControl.Controllers
             current.Resultado = model.Resultado;
             current.Observaciones = model.Observaciones;
             current.UpdatedAt = DateTime.UtcNow; // UTC
+            current.UserId = CurrentUserId();
 
             try
             {
@@ -179,6 +196,7 @@ namespace GanaderiaControl.Controllers
 
             model.IsDeleted = true;
             model.UpdatedAt = DateTime.UtcNow; // UTC
+            model.UserId = CurrentUserId();
             await _db.SaveChangesAsync();
 
             TempData["Ok"] = "Chequeo eliminado.";
@@ -207,6 +225,7 @@ namespace GanaderiaControl.Controllers
                     : EstadoReproductivo.Abierta;
 
                 animal.UpdatedAt = DateTime.UtcNow; // UTC
+                animal.UserId = CurrentUserId();
                 await _db.SaveChangesAsync();
             }
 
@@ -220,14 +239,22 @@ namespace GanaderiaControl.Controllers
                 var fechaBase = servicio?.FechaServicio.Date ?? chk.FechaChequeo.Date;
                 var fechaPartoProbable = fechaBase.AddDays(283);
 
-                await AsegurarAlerta(chk.AnimalId, TipoAlerta.PartoProbable, fechaPartoProbable,
-                    "Chequeo Gestante (+283d desde último servicio o fecha de chequeo).");
+                await AsegurarAlerta(
+                    chk.AnimalId,
+                    TipoAlerta.PartoProbable,
+                    fechaPartoProbable,
+                    "Chequeo Gestante (+283d desde último servicio o fecha de chequeo)."
+                );
             }
             else if (chk.Resultado == ResultadoGestacion.NoGestante && crearAlertaReServicio)
             {
                 var fechaReServicio = chk.FechaChequeo.Date.AddDays(21);
-                await AsegurarAlerta(chk.AnimalId, TipoAlerta.Salud, fechaReServicio,
-                    "Re-servicio sugerido (+21d) tras resultado No Gestante.");
+                await AsegurarAlerta(
+                    chk.AnimalId,
+                    TipoAlerta.Salud,
+                    fechaReServicio,
+                    "Re-servicio sugerido (+21d) tras resultado No Gestante."
+                );
             }
         }
 
@@ -237,11 +264,11 @@ namespace GanaderiaControl.Controllers
                 !a.IsDeleted &&
                 a.AnimalId == animalId &&
                 a.Tipo == tipo &&
-                a.FechaObjetivo == fechaObjetivo);
+                a.FechaObjetivo == fechaObjetivo.Date);
 
             if (!existe)
             {
-                var currentUserId = _userManager.GetUserId(User); // usuario actual como destinatario
+                var uid = CurrentUserId();
                 _db.Alertas.Add(new Alerta
                 {
                     AnimalId = animalId,
@@ -249,7 +276,8 @@ namespace GanaderiaControl.Controllers
                     FechaObjetivo = fechaObjetivo.Date,
                     Estado = EstadoAlerta.Pendiente,
                     Notas = nota,
-                    DestinatarioUserId = currentUserId,
+                    DestinatarioUserId = uid, // destinatario por defecto = actual
+                    UserId = uid,             // auditoría
                     CreatedAt = DateTime.UtcNow, // UTC
                     UpdatedAt = DateTime.UtcNow
                 });

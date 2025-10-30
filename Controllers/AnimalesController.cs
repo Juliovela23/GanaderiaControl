@@ -2,6 +2,8 @@
 using System.Threading.Tasks;
 using GanaderiaControl.Data;
 using GanaderiaControl.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -10,10 +12,19 @@ using System;
 
 namespace GanaderiaControl.Controllers
 {
+    [Authorize]
     public class AnimalesController : Controller
     {
         private readonly ApplicationDbContext _context;
-        public AnimalesController(ApplicationDbContext context) => _context = context;
+        private readonly UserManager<IdentityUser> _userManager;
+
+        public AnimalesController(ApplicationDbContext context, UserManager<IdentityUser> userManager)
+        {
+            _context = context;
+            _userManager = userManager;
+        }
+
+        private string? CurrentUserId() => _userManager.GetUserId(User);
 
         // GET: Animales
         public async Task<IActionResult> Index(string? q)
@@ -98,9 +109,10 @@ namespace GanaderiaControl.Controllers
 
             try
             {
-                // Auditoría en UTC para columnas timestamptz
+                // Auditoría en UTC + UserId
                 animal.CreatedAt = DateTime.UtcNow;
                 animal.UpdatedAt = DateTime.UtcNow;
+                animal.UserId = CurrentUserId();
 
                 _context.Add(animal);
                 await _context.SaveChangesAsync();
@@ -178,7 +190,8 @@ namespace GanaderiaControl.Controllers
                 entity.EstadoReproductivo = animal.EstadoReproductivo;
                 entity.MadreId = animal.MadreId;
                 entity.PadreId = animal.PadreId;
-                entity.UpdatedAt = DateTime.UtcNow; // <-- UTC para timestamptz
+                entity.UpdatedAt = DateTime.UtcNow;     // auditoría UTC
+                entity.UserId = CurrentUserId();      // último usuario que modificó
 
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
@@ -221,6 +234,7 @@ namespace GanaderiaControl.Controllers
 
             animal.IsDeleted = true;
             animal.UpdatedAt = DateTime.UtcNow; // auditoría UTC
+            animal.UserId = CurrentUserId(); // quién lo marcó como eliminado
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }

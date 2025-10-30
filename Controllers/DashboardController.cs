@@ -25,44 +25,70 @@ namespace GanaderiaControl.Controllers
 
         public async Task<IActionResult> Index()
         {
-            var userId = _userManager.GetUserId(User); // <- usuario actual
+            var userId = _userManager.GetUserId(User); // usuario actual
             var today = DateTime.Today;
             var weekEnd = today.AddDays(7);
             var monthStart = new DateTime(today.Year, today.Month, 1);
 
-            // --------- Métricas generales (globales) ----------
-            // Si más adelante agregas Animal.PropietarioUserId, podemos filtrar TODO por userId.
+            // --------- MÉTRICAS (FILTRADAS POR USUARIO) ----------
             var vm = new DashboardViewModel
             {
-                TotalAnimales = await _db.Animales.CountAsync(),
-                Gestantes = await _db.Animales.CountAsync(a => a.EstadoReproductivo == EstadoReproductivo.Gestante),
-                ServiciosMes = await _db.Servicios.CountAsync(s => s.FechaServicio >= monthStart && s.FechaServicio <= today),
+                // OJO: Animal tiene 'userId' (minúscula)
+                TotalAnimales = await _db.Animales
+                    .CountAsync(a => !a.IsDeleted && a.userId == userId),
 
-                // --------- MÉTRICAS DE ALERTAS (filtradas por usuario) ----------
+                Gestantes = await _db.Animales
+                    .CountAsync(a => !a.IsDeleted
+                                  && a.userId == userId
+                                  && a.EstadoReproductivo == EstadoReproductivo.Gestante),
+
+                // ServicioReproductivo tiene 'UserId' (mayúscula)
+                ServiciosMes = await _db.Servicios
+                    .CountAsync(s => !s.IsDeleted
+                                  && s.UserId == userId
+                                  && s.FechaServicio >= monthStart
+                                  && s.FechaServicio <= today),
+
+                // --------- ALERTAS (por destinatario) ----------
                 AlertasPendientes = await _db.Alertas
-                    .CountAsync(a => a.Estado == EstadoAlerta.Pendiente && a.DestinatarioUserId == userId),
+                    .CountAsync(a => !a.IsDeleted
+                                  && a.Estado == EstadoAlerta.Pendiente
+                                  && a.DestinatarioUserId == userId),
 
                 AlertasHoyPendientes = await _db.Alertas
-                    .CountAsync(a => a.Estado == EstadoAlerta.Pendiente && a.FechaObjetivo == today && a.DestinatarioUserId == userId),
+                    .CountAsync(a => !a.IsDeleted
+                                  && a.Estado == EstadoAlerta.Pendiente
+                                  && a.FechaObjetivo == today
+                                  && a.DestinatarioUserId == userId),
 
                 AlertasSemanaPendientes = await _db.Alertas
-                    .CountAsync(a => a.Estado == EstadoAlerta.Pendiente && a.FechaObjetivo > today && a.FechaObjetivo <= weekEnd && a.DestinatarioUserId == userId),
+                    .CountAsync(a => !a.IsDeleted
+                                  && a.Estado == EstadoAlerta.Pendiente
+                                  && a.FechaObjetivo > today
+                                  && a.FechaObjetivo <= weekEnd
+                                  && a.DestinatarioUserId == userId),
 
                 AlertasVencidas = await _db.Alertas
-                    .CountAsync(a => a.Estado == EstadoAlerta.Pendiente && a.FechaObjetivo < today && a.DestinatarioUserId == userId),
+                    .CountAsync(a => !a.IsDeleted
+                                  && a.Estado == EstadoAlerta.Pendiente
+                                  && a.FechaObjetivo < today
+                                  && a.DestinatarioUserId == userId),
 
+                // RegistrosLeche tiene 'UserId' (mayúscula)
                 ProduccionHoyLitros = await _db.RegistrosLeche
-                    .Where(r => r.Fecha == today)
+                    .Where(r => r.UserId == userId && r.Fecha == today)
                     .SumAsync(r => (decimal?)r.LitrosDia) ?? 0m
             };
 
-            // --------- Próximas alertas (filtradas por usuario) ----------
+            // --------- Próximas alertas (por destinatario + no borradas) ----------
             vm.ProximasAlertas = await _db.Alertas
                 .AsNoTracking()
-                .Where(a => a.Estado == EstadoAlerta.Pendiente
+                .Where(a => !a.IsDeleted
+                         && a.Estado == EstadoAlerta.Pendiente
                          && a.FechaObjetivo >= today
                          && a.DestinatarioUserId == userId)
                 .Include(a => a.Animal)
+                .Where(a => a.Animal != null && !a.Animal.IsDeleted)
                 .OrderBy(a => a.FechaObjetivo).ThenBy(a => a.Animal.Arete)
                 .Take(10)
                 .Select(a => new DashboardViewModel.AlertaItem
@@ -76,10 +102,12 @@ namespace GanaderiaControl.Controllers
                 })
                 .ToListAsync();
 
-            // --------- Últimos servicios (GLOBAL por ahora) ----------
+            // --------- Últimos servicios (FILTRADO POR USUARIO) ----------
             vm.UltimosServicios = await _db.Servicios
                 .AsNoTracking()
+                .Where(s => !s.IsDeleted && s.UserId == userId)
                 .Include(s => s.Animal)
+                .Where(s => s.Animal != null && !s.Animal.IsDeleted && s.Animal.userId == userId)
                 .OrderByDescending(s => s.FechaServicio).ThenByDescending(s => s.Id)
                 .Take(10)
                 .Select(s => new DashboardViewModel.ServicioItem
@@ -91,10 +119,12 @@ namespace GanaderiaControl.Controllers
                 })
                 .ToListAsync();
 
-            // --------- Partos recientes (GLOBAL por ahora) ----------
+            // --------- Partos recientes (FILTRADO POR USUARIO) ----------
             vm.PartosRecientes = await _db.Partos
                 .AsNoTracking()
+                .Where(p => !p.IsDeleted && p.userId == userId) // Parto tiene 'userId' (minúscula)
                 .Include(p => p.Madre)
+                .Where(p => p.Madre != null && !p.Madre.IsDeleted && p.Madre.userId == userId)
                 .OrderByDescending(p => p.FechaParto).ThenByDescending(p => p.Id)
                 .Take(10)
                 .Select(p => new DashboardViewModel.PartoItem
@@ -106,11 +136,12 @@ namespace GanaderiaControl.Controllers
                 })
                 .ToListAsync();
 
-            // ================== SERIES PARA GRÁFICOS (GLOBAL por ahora) ==================
+            // ================== SERIES PARA GRÁFICOS (FILTRADAS POR USUARIO) ==================
             var weekStart = today.AddDays(-6);
+
             var semanaQuery = await _db.RegistrosLeche
                 .AsNoTracking()
-                .Where(r => r.Fecha >= weekStart && r.Fecha <= today)
+                .Where(r => r.UserId == userId && r.Fecha >= weekStart && r.Fecha <= today)
                 .GroupBy(r => r.Fecha)
                 .Select(g => new { Fecha = g.Key, Litros = g.Sum(x => x.LitrosDia) })
                 .ToListAsync();
@@ -130,7 +161,7 @@ namespace GanaderiaControl.Controllers
 
             var mesQuery = await _db.RegistrosLeche
                 .AsNoTracking()
-                .Where(r => r.Fecha >= monthStart && r.Fecha <= monthEnd)
+                .Where(r => r.UserId == userId && r.Fecha >= monthStart && r.Fecha <= monthEnd)
                 .GroupBy(r => r.Fecha)
                 .Select(g => new { Fecha = g.Key, Litros = g.Sum(x => x.LitrosDia) })
                 .ToListAsync();
@@ -149,7 +180,7 @@ namespace GanaderiaControl.Controllers
 
             var anioQuery = await _db.RegistrosLeche
                 .AsNoTracking()
-                .Where(r => r.Fecha >= yearStart && r.Fecha <= yearEnd)
+                .Where(r => r.UserId == userId && r.Fecha >= yearStart && r.Fecha <= yearEnd)
                 .GroupBy(r => new { r.Fecha.Year, r.Fecha.Month })
                 .Select(g => new { g.Key.Year, g.Key.Month, Litros = g.Sum(x => x.LitrosDia) })
                 .ToListAsync();

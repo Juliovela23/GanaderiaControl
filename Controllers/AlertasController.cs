@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 
 namespace GanaderiaControl.Controllers
 {
+    [Authorize]
     public class AlertasController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -24,6 +25,8 @@ namespace GanaderiaControl.Controllers
             _context = context;
             _userManager = userManager;
         }
+
+        private string? CurrentUserId() => _userManager.GetUserId(User);
 
         // LISTADO
         public async Task<IActionResult> Index(string? q, EstadoAlerta? estado, DateTime? desde, DateTime? hasta, bool proximos = true)
@@ -104,8 +107,14 @@ namespace GanaderiaControl.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("AnimalId,Tipo,FechaObjetivo,Estado,Disparador,Notas,DestinatarioUserId")] Alerta alerta)
         {
-            // Si no se especifica, usa el usuario actual como destinatario de la alerta
-            alerta.DestinatarioUserId ??= _userManager.GetUserId(User);
+            // Limpia validaciones de navegación que no posteas
+            ModelState.Remove("Animal");
+            ModelState.Remove("Animal.Nombre");
+
+            // Setea usuario creador / destinatario
+            var uid = CurrentUserId();
+            alerta.UserId = uid;
+            alerta.DestinatarioUserId ??= uid;
 
             var animalOk = await _context.Animales.AnyAsync(a => a.Id == alerta.AnimalId && !a.IsDeleted);
             if (!animalOk)
@@ -157,6 +166,10 @@ namespace GanaderiaControl.Controllers
         {
             if (id != alerta.Id) return NotFound();
 
+            // Evita validaciones de navegación no posteadas (fix "falta nombre")
+            ModelState.Remove("Animal");
+            ModelState.Remove("Animal.Nombre");
+
             var animalOk = await _context.Animales.AnyAsync(a => a.Id == alerta.AnimalId && !a.IsDeleted);
             if (!animalOk)
                 ModelState.AddModelError(nameof(alerta.AnimalId), "Animal inválido.");
@@ -177,13 +190,20 @@ namespace GanaderiaControl.Controllers
                 var entity = await _context.Alertas.FirstOrDefaultAsync(a => a.Id == id && !a.IsDeleted);
                 if (entity == null) return NotFound();
 
+                // Mapear campos editables
                 entity.AnimalId = alerta.AnimalId;
                 entity.Tipo = alerta.Tipo;
                 entity.FechaObjetivo = alerta.FechaObjetivo;
                 entity.Estado = alerta.Estado;
                 entity.Disparador = alerta.Disparador;
                 entity.Notas = alerta.Notas;
-                entity.DestinatarioUserId = alerta.DestinatarioUserId ?? entity.DestinatarioUserId;
+
+                // Si no vino un destinatario, deja el existente o usa el actual
+                entity.DestinatarioUserId = alerta.DestinatarioUserId ?? entity.DestinatarioUserId ?? CurrentUserId();
+
+                // Guarda el usuario que actualiza
+                entity.UserId = CurrentUserId();
+
                 entity.UpdatedAt = DateTime.UtcNow; // UTC
 
                 await _context.SaveChangesAsync();
@@ -222,14 +242,14 @@ namespace GanaderiaControl.Controllers
 
             alerta.IsDeleted = true;
             alerta.UpdatedAt = DateTime.UtcNow; // UTC
+            alerta.UserId = CurrentUserId();
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
 
         // ====== ENDPOINT DE PRUEBA DE CORREO (opcional) ======
-        // TIP: Déjalo [AllowAnonymous] sólo en DEV para que Postman no requiera cookie de Identity.
         [HttpPost]
-        [AllowAnonymous]
+        [AllowAnonymous] // solo en DEV
         public async Task<IActionResult> ProbarCorreo(
             int id,
             [FromServices] IAlertRecipientResolver resolver,
@@ -296,6 +316,7 @@ namespace GanaderiaControl.Controllers
             {
                 a.Estado = EstadoAlerta.Vencida;
                 a.UpdatedAt = DateTime.UtcNow; // UTC
+                a.UserId = CurrentUserId();
             }
             await _context.SaveChangesAsync();
         }
@@ -311,6 +332,7 @@ namespace GanaderiaControl.Controllers
                 alerta.Estado = EstadoAlerta.Notificada;
 
             alerta.UpdatedAt = DateTime.UtcNow;
+            alerta.UserId = CurrentUserId();
             await _context.SaveChangesAsync();
 
             if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
@@ -328,6 +350,7 @@ namespace GanaderiaControl.Controllers
 
             alerta.Estado = EstadoAlerta.Atendida;
             alerta.UpdatedAt = DateTime.UtcNow;
+            alerta.UserId = CurrentUserId();
             await _context.SaveChangesAsync();
 
             if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
@@ -335,6 +358,5 @@ namespace GanaderiaControl.Controllers
 
             return RedirectToAction(nameof(Index));
         }
-
     }
 }
